@@ -2,19 +2,13 @@
 
 A lightweight dashboard that reads Claude Code's `~/.claude/history.jsonl` and visualizes your usage — per-project prompt counts, session tracking, daily intensity, weekly/monthly activity timelines, and estimated token usage. Single binary, zero dependencies.
 
-## Requirements
-
-- Go 1.21+
-
-## Getting Started
+## Quick Start
 
 ```bash
-git clone https://github.com/SemihMutlu07/cc-lens.git
-cd cc-lens
-go run .
+curl -sSL https://raw.githubusercontent.com/SemihMutlu07/cc-lens/main/install.sh | bash
 ```
 
-Open [http://localhost:8080](http://localhost:8080).
+Requires [Go 1.21+](https://go.dev/dl).
 
 ## Screenshot
 
