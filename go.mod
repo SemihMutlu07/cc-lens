@@ -1,3 +1,3 @@
-module github.com/SemihMutlu07/go_proj
+module github.com/SemihMutlu07/cc-lens
 
 go 1.25.8
