@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code Stats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #f8eed2;
+    --surface:  #ffffff;
+    --ink:      #3b110c;
+    --ink-soft: #5d3d3a;
+    --font:     'Space Grotesk', sans-serif;
+    --shadow:   4px 4px 0px var(--ink);
+    --shadow-l: 6px 6px 0px var(--ink);
+    --line:     #d4c8a8;
+    /* accents */
+    --hay:      #e9e4a6;
+    --lavender: #bdb7fc;
+    --red:      #da1c1c;
+    --orange:   #dd5013;
+    --coffee:   #a05f1a;
+  }
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0s !important;
+      transition-duration: 0s !important;
+    }
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--ink);
+    background-image: radial-gradient(circle, rgba(59,17,12,0.06) 1px, transparent 1px);
+    background-size: 26px 26px;
+  }
+
+  .shell {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.65rem 1.3rem;
+    border-bottom: 3px solid var(--ink);
+    flex-shrink: 0;
+    background: var(--bg);
+  }
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .topbar-star {
+    color: var(--red);
+    font-size: 1.2rem;
+    animation: spin 12s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .topbar-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink);
+  }
+
+  /* top-right stats — LARGE prominent badges */
+  .topbar-stats {
+    display: flex;
+    gap: 0.7rem;
+  }
+
+  .topbar-stat {
+    background: var(--surface);
+    border: 3px solid var(--ink);
+    box-shadow: 3px 3px 0px var(--ink);
+    padding: 0.5rem 1.1rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    transition: transform 100ms ease-out, box-shadow 100ms ease-out;
+  }
+
+  .topbar-stat:nth-child(1) { border-top: 5px solid var(--red); }
+  .topbar-stat:nth-child(2) { border-top: 5px solid var(--orange); }
+  .topbar-stat:nth-child(3) { border-top: 5px solid var(--coffee); }
+
+  .topbar-stat:hover { transform: translateY(-2px); box-shadow: 4px 4px 0px var(--ink); }
+  .topbar-stat:active { transform: translate(2px, 2px); box-shadow: none; }
+
+  .topbar-stat-num {
+    font-size: 1.7rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--ink);
+  }
+
+  .topbar-stat-lbl {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+  }
+
+  /* ── GRID AREA ── */
+  .grid-area {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1rem 1.2rem;
+  }
+
+  .grid-area::-webkit-scrollbar { width: 5px; }
+  .grid-area::-webkit-scrollbar-track { background: transparent; }
+  .grid-area::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+  .grid-area { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.1rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 3px solid var(--ink);
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: visible;
+    transition: transform 150ms ease-out, box-shadow 150ms ease-out;
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  .card.visible { opacity: 1; transform: translateY(0); }
+  .card:hover { transform: translateY(-4px); box-shadow: var(--shadow-l); z-index: 5; }
+  .card:active { transform: translate(2px, 2px); box-shadow: none; }
+
+  /* rank badge */
+  .card-rank {
+    position: absolute;
+    top: -11px;
+    right: 12px;
+    background: var(--ink);
+    color: var(--bg);
+    font-size: 0.6rem;
+    font-weight: 700;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    z-index: 2;
+  }
+
+  /* header strip — cycles through 5 accents */
+  .card-head {
+    padding: 0.6rem 0.9rem;
+    border-bottom: 3px solid var(--ink);
+  }
+
+  .card:nth-child(5n+1) .card-head { background: var(--hay); }
+  .card:nth-child(5n+2) .card-head { background: var(--lavender); }
+  .card:nth-child(5n+3) .card-head { background: var(--red); }
+  .card:nth-child(5n+4) .card-head { background: var(--orange); }
+  .card:nth-child(5n+5) .card-head { background: var(--coffee); }
+
+  /* red/orange/coffee headers need light text */
+  .card:nth-child(5n+3) .card-name,
+  .card:nth-child(5n+4) .card-name,
+  .card:nth-child(5n+5) .card-name { color: #fff; }
+
+  .card-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card-name .char {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  /* body */
+  .card-body {
+    padding: 0.8rem 0.9rem 0.7rem;
+  }
+
+  /* big prompt number */
+  .card-num {
+    font-size: 2.6rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--ink);
+    margin-bottom: 0.5rem;
+  }
+
+  /* stats line */
+  .card-stats-line {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+    margin-bottom: 0.45rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card-stats-line b {
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .card-stats-line .sep {
+    opacity: 0.3;
+    margin: 0 0.25rem;
+  }
+
+  .card-stats-line .oneshot {
+    font-weight: 700;
+    color: var(--orange);
+    font-style: italic;
+  }
+
+  /* dates */
+  .card-dates {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+    opacity: 0.55;
+    margin-bottom: 0.55rem;
+  }
+
+  /* intensity section */
+  .intensity-lbl {
+    font-size: 0.5rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-soft);
+    margin-bottom: 0.2rem;
+  }
+
+  .intensity-track {
+    height: 12px;
+    background: var(--bg);
+    border: 2px solid var(--ink);
+    overflow: hidden;
+  }
+
+  .intensity-fill {
+    height: 100%;
+    width: 0%;
+    transition: width 700ms ease-out;
+    background-color: var(--bar-color, var(--ink));
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 3px,
+      rgba(59,17,12,0.12) 3px,
+      rgba(59,17,12,0.12) 6px
+    );
+  }
+
+  /* ── BOTTOM BAR ── */
+  .bottombar {
+    border-top: 2px solid var(--line);
+    padding: 0.45rem;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .bottombar p {
+    font-size: 0.5rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ink-soft);
+    opacity: 0.35;
+  }
+
+  .loading {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 3rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ink-soft);
+    opacity: 0.5;
+  }
+
+  /* ── TIMELINE SECTION ── */
+  .timeline-section {
+    max-width: 1200px;
+    margin: 1.5rem auto 0;
+  }
+
+  .tl-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+  }
+
+  .tl-header h2 {
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .tl-header .tl-line {
+    flex: 1;
+    height: 3px;
+    background: var(--ink);
+  }
+
+  /* summary badges row */
+  .tl-summary {
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.2rem;
+  }
+
+  .tl-badge {
+    background: var(--surface);
+    border: 3px solid var(--ink);
+    box-shadow: 3px 3px 0px var(--ink);
+    padding: 0.6rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 120px;
+    transition: transform 100ms ease-out, box-shadow 100ms ease-out;
+  }
+
+  .tl-badge:hover { transform: translateY(-2px); box-shadow: 4px 4px 0px var(--ink); }
+
+  .tl-badge-num {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .tl-badge-lbl {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    margin-top: 0.2rem;
+  }
+
+  /* weekly chart */
+  .tl-chart-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-soft);
+    margin-bottom: 0.5rem;
+  }
+
+  .tl-weeks {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 120px;
+    background: var(--surface);
+    border: 3px solid var(--ink);
+    box-shadow: var(--shadow);
+    padding: 0.6rem 0.6rem 0.4rem;
+    margin-bottom: 1.2rem;
+    overflow-x: auto;
+  }
+
+  .tl-week-col {
+    flex: 1;
+    min-width: 18px;
+    max-width: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    justify-content: flex-end;
+    position: relative;
+    cursor: default;
+  }
+
+  .tl-week-bar {
+    width: 100%;
+    min-height: 2px;
+    background: var(--lavender);
+    border: 2px solid var(--ink);
+    transition: height 600ms ease-out;
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent, transparent 2px,
+      rgba(59,17,12,0.1) 2px, rgba(59,17,12,0.1) 4px
+    );
+  }
+
+  .tl-week-col:hover .tl-week-bar { background-color: var(--orange); }
+
+  .tl-week-lbl {
+    font-size: 0.45rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+    margin-top: 0.2rem;
+    white-space: nowrap;
+    text-transform: uppercase;
+  }
+
+  /* tooltip */
+  .tl-week-col .tl-tip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: var(--bg);
+    padding: 0.35rem 0.5rem;
+    font-size: 0.6rem;
+    font-weight: 700;
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .tl-week-col:hover .tl-tip { display: block; }
+
+  /* monthly table */
+  .tl-months {
+    background: var(--surface);
+    border: 3px solid var(--ink);
+    box-shadow: var(--shadow);
+    margin-bottom: 1.5rem;
+  }
+
+  .tl-month-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    padding: 0.5rem 0.8rem;
+    border-bottom: 2px solid var(--line);
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+  }
+
+  .tl-month-row:last-child { border-bottom: none; }
+
+  .tl-month-row.tl-month-head {
+    background: var(--hay);
+    border-bottom: 3px solid var(--ink);
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink);
+  }
+
+  .tl-month-row b { color: var(--ink); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .cards { grid-template-columns: repeat(2, 1fr); }
+    .topbar-stat { padding: 0.4rem 0.7rem; }
+    .topbar-stat-num { font-size: 1.3rem; }
+  }
+  @media (max-width: 600px) {
+    .topbar { flex-wrap: wrap; gap: 0.5rem; }
+    .topbar-stats { width: 100%; justify-content: center; }
+    .cards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-star" aria-hidden="true">★</span>
+      <span class="topbar-title">Claude Code Stats</span>
+    </div>
+    <div class="topbar-stats" id="topbar-stats"></div>
+  </div>
+
+  <div class="grid-area">
+    <div class="cards" id="cards">
+      <div class="loading">Loading...</div>
+    </div>
+    <div class="timeline-section" id="timeline" style="display:none"></div>
+  </div>
+
+  <div class="bottombar"><p>Built with Go + Vanilla JS</p></div>
+</div>
+
+<script>
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function countUp(el, target, duration = 1000) {
+  const start = performance.now();
+  function tick(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = Math.round(eased * target);
+    if (t < 1) requestAnimationFrame(tick);
+    else el.textContent = target;
+  }
+  requestAnimationFrame(tick);
+}
+
+function makeCharSpans(text) {
+  return [...text].map(c =>
+    c === ' '
+      ? '<span class="char" style="opacity:1;transform:none">&nbsp;</span>'
+      : `<span class="char">${esc(c)}</span>`
+  ).join('');
+}
+
+function typeReveal(container) {
+  const chars = container.querySelectorAll('.char');
+  chars.forEach((ch, i) => {
+    setTimeout(() => {
+      ch.style.transition = 'opacity 60ms ease-out, transform 60ms ease-out';
+      ch.style.opacity = '1';
+      ch.style.transform = 'translateY(0)';
+    }, i * 20);
+  });
+}
+
+function renderTopStats(totalPrompts, totalSessions, projectCount) {
+  const el = document.getElementById('topbar-stats');
+  const items = [
+    { value: totalPrompts, label: 'Prompts' },
+    { value: totalSessions, label: 'Sessions' },
+    { value: projectCount, label: 'Projects' }
+  ];
+
+  el.innerHTML = items.map(s => `
+    <div class="topbar-stat">
+      <span class="topbar-stat-num" data-target="${s.value}">0</span>
+      <span class="topbar-stat-lbl">${s.label}</span>
+    </div>
+  `).join('');
+
+  setTimeout(() => {
+    el.querySelectorAll('.topbar-stat-num').forEach(n => {
+      countUp(n, parseInt(n.dataset.target), 800);
+    });
+  }, 150);
+}
+
+function renderCards(data) {
+  const maxIntensity = Math.max(...data.map(p => p.intensity), 1);
+  const cardsEl = document.getElementById('cards');
+  const accents = ['var(--hay)', 'var(--lavender)', 'var(--red)', 'var(--orange)', 'var(--coffee)'];
+
+  cardsEl.innerHTML = data.map((p, i) => {
+    const barPct = Math.min((p.intensity / maxIntensity) * 100, 100).toFixed(1);
+    const barColor = accents[i % 5];
+
+    /* conditional: 1 active day → "Tek Oturuşta" instead of X/day */
+    let intensityText;
+    if (p.active_days <= 1) {
+      intensityText = '<span class="oneshot">One Shot</span>';
+    } else {
+      intensityText = `<b>${p.intensity}</b> prompts/day`;
+    }
+
+    return `
+      <article class="card" data-index="${i}">
+        <div class="card-rank">${i + 1}</div>
+        <div class="card-head">
+          <div class="card-name">${makeCharSpans(p.name)}</div>
+        </div>
+        <div class="card-body">
+          <div class="card-num" data-count="${p.prompts}">0</div>
+          <div class="card-stats-line">
+            <b>${p.sessions}</b> sessions<span class="sep">&middot;</span><b>${p.active_days}</b> active days<span class="sep">&middot;</span>${intensityText}
+          </div>
+          <div class="card-dates">${p.first_date} &rarr; ${p.last_date}</div>
+          <div class="intensity-lbl">DAILY INTENSITY (prompts/day)</div>
+          <div class="intensity-track">
+            <div class="intensity-fill" data-width="${barPct}" style="--bar-color:${barColor}"></div>
+          </div>
+        </div>
+      </article>`;
+  }).join('');
+
+  cardsEl.querySelectorAll('.card').forEach((card, i) => {
+    setTimeout(() => {
+      card.style.transition = 'opacity 180ms ease-out, transform 180ms ease-out';
+      card.classList.add('visible');
+      typeReveal(card.querySelector('.card-name'));
+      countUp(card.querySelector('.card-num'), parseInt(card.querySelector('.card-num').dataset.count), 800);
+      const fill = card.querySelector('.intensity-fill');
+      setTimeout(() => { fill.style.width = fill.dataset.width + '%'; }, 120);
+    }, 60 + i * 70);
+  });
+}
+
+function fmtNum(n) {
+  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  return String(n);
+}
+
+function renderTimeline(tl) {
+  const el = document.getElementById('timeline');
+  el.style.display = '';
+
+  const maxPrompts = Math.max(...tl.weeks.map(w => w.prompts), 1);
+
+  let html = `
+    <div class="tl-header">
+      <h2>Activity Timeline</h2>
+      <div class="tl-line"></div>
+    </div>
+    <div class="tl-summary">
+      <div class="tl-badge" style="border-top: 5px solid var(--lavender)">
+        <span class="tl-badge-num">${fmtNum(tl.total_tokens)}</span>
+        <span class="tl-badge-lbl">Est. Tokens</span>
+      </div>
+      <div class="tl-badge" style="border-top: 5px solid var(--red)">
+        <span class="tl-badge-num">${tl.active_weeks}/${tl.total_weeks}</span>
+        <span class="tl-badge-lbl">Active Weeks</span>
+      </div>
+      <div class="tl-badge" style="border-top: 5px solid var(--orange)">
+        <span class="tl-badge-num">${tl.avg_prompts_per_week}</span>
+        <span class="tl-badge-lbl">Avg Prompts/Week</span>
+      </div>
+      <div class="tl-badge" style="border-top: 5px solid var(--coffee)">
+        <span class="tl-badge-num">${fmtNum(Math.round(tl.avg_tokens_per_week))}</span>
+        <span class="tl-badge-lbl">Avg Tokens/Week</span>
+      </div>
+    </div>
+
+    <div class="tl-chart-title">Weekly Activity</div>
+    <div class="tl-weeks">
+      ${tl.weeks.map(w => {
+        const pct = Math.max((w.prompts / maxPrompts) * 100, 3).toFixed(1);
+        const top3 = (w.top_projects || []).map(p => esc(p.name) + ': ' + p.prompts).join(', ');
+        return `
+          <div class="tl-week-col">
+            <div class="tl-tip">${esc(w.label)}<br>${w.prompts} prompt · ${w.sessions} session${top3 ? '<br>' + top3 : ''}</div>
+            <div class="tl-week-bar" data-height="${pct}" style="height: 0%"></div>
+            <div class="tl-week-lbl">${esc(w.week.split('-')[1] || w.week)}</div>
+          </div>`;
+      }).join('')}
+    </div>
+
+    <div class="tl-chart-title">Monthly Summary</div>
+    <div class="tl-months">
+      <div class="tl-month-row tl-month-head">
+        <span>Month</span><span>Prompts</span><span>Tokens</span><span>Active Days</span>
+      </div>
+      ${tl.months.map(m => `
+        <div class="tl-month-row">
+          <span><b>${esc(m.label)}</b></span>
+          <span><b>${m.prompts}</b></span>
+          <span>${fmtNum(m.tokens)}</span>
+          <span>${m.active_days} days</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  el.innerHTML = html;
+
+  // animate bars
+  setTimeout(() => {
+    el.querySelectorAll('.tl-week-bar').forEach(bar => {
+      bar.style.height = bar.dataset.height + '%';
+    });
+  }, 100);
+}
+
+fetch('/api/stats')
+  .then(r => r.json())
+  .then(data => {
+    const totalPrompts = data.reduce((s, p) => s + p.prompts, 0);
+    const totalSessions = data.reduce((s, p) => s + p.sessions, 0);
+    renderTopStats(totalPrompts, totalSessions, data.length);
+    renderCards(data);
+  });
+
+fetch('/api/timeline')
+  .then(r => r.json())
+  .then(renderTimeline);
+</script>
+
+</body>
+</html>
