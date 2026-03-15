@@ -1,53 +1,40 @@
-# CC Lens
+# cc-lens
 
-A lightweight dashboard that reads Claude Code's `~/.claude/history.jsonl` and visualizes your usage — per-project prompt counts, session tracking, daily intensity, weekly/monthly activity timelines, and estimated token usage. Single binary, zero dependencies.
-
-## Screenshot
+Claude Code'un `~/.claude/history.jsonl` dosyasını okuyup proje bazında kullanım istatistiklerini gösteren dashboard.
 
 ![Dashboard](assets/dashboard.png)
 
-## Install
+## Gereksinimler
 
-### Mac (Apple Silicon)
+**macOS**
+```bash
+brew install git go
+```
+
+**Linux (Ubuntu/Debian)**
+```bash
+sudo apt install git golang
+```
+
+**Linux (Fedora)**
+```bash
+sudo dnf install git golang-bin
+```
+
+**Windows**
+- Git: https://git-scm.com/download/win
+- Go: https://go.dev/dl/
+
+## Çalıştır
 
 ```bash
-curl -L https://github.com/SemihMutlu07/cc-lens/releases/latest/download/cc-lens-darwin-arm64 -o cc-lens
-chmod +x cc-lens
-./cc-lens
+git clone https://github.com/SemihMutlu07/cc-lens.git
+cd cc-lens
+go run .
 ```
 
-### Mac (Intel)
+Tarayıcıda aç: http://localhost:8080
 
-```bash
-curl -L https://github.com/SemihMutlu07/cc-lens/releases/latest/download/cc-lens-darwin-amd64 -o cc-lens
-chmod +x cc-lens
-./cc-lens
-```
+## Built with
 
-### Linux
-
-```bash
-curl -L https://github.com/SemihMutlu07/cc-lens/releases/latest/download/cc-lens-linux-amd64 -o cc-lens
-chmod +x cc-lens
-./cc-lens
-```
-
-### Windows
-
-Download [`cc-lens-windows-amd64.exe`](https://github.com/SemihMutlu07/cc-lens/releases/latest/download/cc-lens-windows-amd64.exe), then run:
-
-```
-cc-lens-windows-amd64.exe
-```
-
-Then open [http://localhost:8080](http://localhost:8080).
-
-### From source (requires Go 1.21+)
-
-```bash
-curl -sSL https://raw.githubusercontent.com/SemihMutlu07/cc-lens/main/install.sh | bash
-```
-
----
-
-Built with Go + Vanilla JS.
+Go + Vanilla JS
