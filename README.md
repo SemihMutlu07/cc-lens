@@ -1,10 +1,10 @@
 # cc-lens
 
-Claude Code'un `~/.claude/history.jsonl` dosyasını okuyup proje bazında kullanım istatistiklerini gösteren dashboard.
+A dashboard that reads Claude Code's `~/.claude/history.jsonl` and displays per-project usage statistics.
 
 ![Dashboard](assets/dashboard.png)
 
-## Gereksinimler
+## Requirements
 
 **macOS**
 ```bash
@@ -25,7 +25,7 @@ sudo dnf install git golang-bin
 - Git: https://git-scm.com/download/win
 - Go: https://go.dev/dl/
 
-## Çalıştır
+## Run
 
 ```bash
 git clone https://github.com/SemihMutlu07/cc-lens.git
@@ -33,7 +33,7 @@ cd cc-lens
 go run .
 ```
 
-Tarayıcıda aç: http://localhost:8080
+Open in browser: http://localhost:8080
 
 ## Built with
 
