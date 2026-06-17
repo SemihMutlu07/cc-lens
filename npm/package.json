@@ -1,6 +1,7 @@
 {
   "name": "cclens",
-  "version": "1.0.0",
+  "version": "1.1.0",
+  "license": "MIT",
   "description": "Local-first AI Coding Wrapped for Claude Code, Codex, Gemini and other agent CLIs. Runs a tiny local web app; your prompts never leave your machine.",
   "bin": {
     "cclens": "bin/cc-lens.js",
