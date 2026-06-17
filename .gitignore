@@ -1,2 +1,17 @@
 server
 claude-stats
+
+# build artifacts
+/cc-lens
+/dist/
+*.tgz
+
+# npm wrapper deps
+npm/node_modules/
+
+# unrelated nested project (not part of cc-lens)
+french_anki_p/
+
+# personal / local-only — never publish
+AGENTS.md
+SCRATCHPAD.md

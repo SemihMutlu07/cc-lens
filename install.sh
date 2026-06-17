@@ -1,43 +1,77 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Check if Go is installed
-if ! command -v go &> /dev/null; then
-  echo "Go is not installed."
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    echo "Install with: brew install go"
-  else
-    echo "Install with: sudo apt install golang  (Debian/Ubuntu)"
-    echo "         or:  sudo dnf install golang   (Fedora)"
-    echo "         or:  visit https://go.dev/dl"
-  fi
+repo="SemihMutlu07/cc-lens"
+version="${CC_LENS_VERSION:-latest}"
+bin_dir="${CC_LENS_BIN_DIR:-$HOME/.local/bin}"
+run_after_install=1
+
+if [[ "${1:-}" == "--no-run" ]]; then
+  run_after_install=0
+fi
+
+os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+arch="$(uname -m)"
+
+case "$os" in
+  darwin) os="darwin" ;;
+  linux) os="linux" ;;
+  *) echo "Unsupported OS: $os" >&2; exit 1 ;;
+esac
+
+case "$arch" in
+  x86_64|amd64) arch="amd64" ;;
+  arm64|aarch64) arch="arm64" ;;
+  *) echo "Unsupported architecture: $arch" >&2; exit 1 ;;
+esac
+
+asset="cc-lens-${os}-${arch}"
+if [[ "$version" == "latest" ]]; then
+  url="https://github.com/${repo}/releases/latest/download/${asset}"
+else
+  url="https://github.com/${repo}/releases/download/${version}/${asset}"
+fi
+
+mkdir -p "$bin_dir"
+target="$bin_dir/cc-lens"
+
+echo "Downloading $asset..."
+if command -v curl >/dev/null 2>&1; then
+  curl -fsSL "$url" -o "$target"
+elif command -v wget >/dev/null 2>&1; then
+  wget -q "$url" -O "$target"
+else
+  echo "curl or wget is required." >&2
   exit 1
 fi
 
-echo "Go found: $(go version)"
+chmod +x "$target"
+echo "Installed cc-lens to $target"
 
-# Clone and run
-INSTALL_DIR="$HOME/cc-lens"
+ensure_on_path() {
+  case ":$PATH:" in
+    *":$bin_dir:"*) return 0 ;;
+  esac
 
-if [ -d "$INSTALL_DIR" ]; then
-  echo "Updating existing install..."
-  cd "$INSTALL_DIR" && git pull
-else
-  git clone https://github.com/SemihMutlu07/cc-lens.git "$INSTALL_DIR"
-  cd "$INSTALL_DIR"
+  local rc=""
+  case "${SHELL:-}" in
+    */zsh) rc="${ZDOTDIR:-$HOME}/.zshrc" ;;
+    */bash) rc="$HOME/.bashrc" ;;
+    *) rc="$HOME/.profile" ;;
+  esac
+
+  local marker="# added by cc-lens installer"
+  local line="export PATH=\"$bin_dir:\$PATH\"  $marker"
+
+  if [[ -n "$rc" ]] && ! grep -qsF "$marker" "$rc"; then
+    printf '\n%s\n' "$line" >> "$rc"
+    echo "Added $bin_dir to PATH in $rc"
+  fi
+  echo "Run this to use 'cc-lens' in the current shell (or restart it):"
+  echo "  export PATH=\"$bin_dir:\$PATH\""
+}
+ensure_on_path
+
+if [[ "$run_after_install" == "1" ]]; then
+  "$target"
 fi
-
-echo "Starting CC Lens..."
-go run . &
-sleep 2
-
-# Open browser
-if command -v xdg-open &> /dev/null; then
-  xdg-open http://localhost:8080
-elif command -v open &> /dev/null; then
-  open http://localhost:8080
-else
-  echo "Open http://localhost:8080 in your browser."
-fi
-
-echo "CC Lens is running at http://localhost:8080"

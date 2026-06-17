@@ -1,0 +1,33 @@
+{
+  "name": "cclens",
+  "version": "1.0.0",
+  "description": "Local-first AI Coding Wrapped for Claude Code, Codex, Gemini and other agent CLIs. Runs a tiny local web app; your prompts never leave your machine.",
+  "bin": {
+    "cclens": "bin/cc-lens.js",
+    "cc-lens": "bin/cc-lens.js"
+  },
+  "files": [
+    "bin/"
+  ],
+  "keywords": [
+    "claude-code",
+    "codex",
+    "gemini",
+    "cli",
+    "wrapped",
+    "ai-coding",
+    "local-first",
+    "dashboard"
+  ],
+  "homepage": "https://github.com/SemihMutlu07/cc-lens#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SemihMutlu07/cc-lens.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SemihMutlu07/cc-lens/issues"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}
