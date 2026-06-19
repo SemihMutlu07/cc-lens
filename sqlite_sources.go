@@ -239,7 +239,7 @@ func openCodeMessages(db *sql.DB, table, timeCol, contentCol, roleCol string, st
 			Source:    status.Name,
 			SourceID:  status.ID,
 			Project:   "OpenCode",
-			SessionID: fallbackSession("", status.ID, len(items)),
+			SessionID: "",
 			Timestamp: ts,
 			Chars:     len(content.String),
 		})

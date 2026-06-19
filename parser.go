@@ -152,8 +152,9 @@ type projectCollector struct {
 	tokens   int
 	first    time.Time
 	last     time.Time
-	sessions map[string]struct{}
-	days     map[string]struct{}
+	sessions   map[string]struct{}
+	emptyTimes []time.Time
+	days       map[string]struct{}
 }
 
 // sourceParser pairs a tool with the function that reads its local history.
@@ -259,7 +260,7 @@ func parseClaude(home string) ([]Interaction, SourceStatus) {
 			Source:    status.Name,
 			SourceID:  status.ID,
 			Project:   projectName(entry.Project, "Unknown Claude Project"),
-			SessionID: fallbackSession(entry.SessionID, status.ID, len(items)),
+			SessionID: entry.SessionID,
 			Timestamp: unixFlexible(entry.Timestamp),
 			Chars:     entry.EstimateChars(),
 		})
@@ -311,7 +312,7 @@ func parseCodex(home string) ([]Interaction, SourceStatus) {
 			Source:    status.Name,
 			SourceID:  status.ID,
 			Project:   "Codex CLI",
-			SessionID: fallbackSession(entry.SessionID, status.ID, len(items)),
+			SessionID: entry.SessionID,
 			Timestamp: unixFlexible(entry.Timestamp),
 			Chars:     len(entry.Text),
 		})
@@ -363,7 +364,7 @@ func parseGemini(home string) ([]Interaction, SourceStatus) {
 				Source:    status.Name,
 				SourceID:  status.ID,
 				Project:   projectName(entry.Workspace, "Gemini Workspace"),
-				SessionID: fallbackSession("", status.ID, len(items)),
+				SessionID: "",
 				Timestamp: unixFlexible(entry.Timestamp),
 				Chars:     len(entry.Display),
 			})
@@ -517,7 +518,7 @@ func parseAider(home string) ([]Interaction, SourceStatus) {
 			Source:    status.Name,
 			SourceID:  status.ID,
 			Project:   "Aider",
-			SessionID: fallbackSession("", status.ID, len(items)),
+			SessionID: "",
 			Timestamp: ts,
 			Chars:     len(text),
 		})
@@ -709,7 +710,7 @@ func aggregate(items []Interaction) (Totals, []ProjectStats, Timeline, []SourceB
 	projectMap := make(map[string]*projectCollector)
 	sourceMap := make(map[string]*SourceBreakdown)
 	sourceSessions := make(map[string]map[string]struct{})
-	allSessions := make(map[string]struct{})
+	sourceEmptyTimes := make(map[string][]time.Time)
 	allDays := make(map[string]struct{})
 
 	for _, item := range items {
@@ -718,7 +719,6 @@ func aggregate(items []Interaction) (Totals, []ProjectStats, Timeline, []SourceB
 		}
 		tokens := estimateTokens(item.Chars)
 		totals.EstimatedTokens += tokens
-		allSessions[item.SourceID+":"+item.SessionID] = struct{}{}
 		allDays[item.Timestamp.Format("2006-01-02")] = struct{}{}
 
 		key := item.SourceID + ":" + item.Project
@@ -737,7 +737,11 @@ func aggregate(items []Interaction) (Totals, []ProjectStats, Timeline, []SourceB
 		}
 		c.prompts++
 		c.tokens += tokens
-		c.sessions[item.SessionID] = struct{}{}
+		if item.SessionID != "" {
+			c.sessions[item.SessionID] = struct{}{}
+		} else {
+			c.emptyTimes = append(c.emptyTimes, item.Timestamp)
+		}
 		c.days[item.Timestamp.Format("2006-01-02")] = struct{}{}
 		if item.Timestamp.Before(c.first) {
 			c.first = item.Timestamp
@@ -754,13 +758,17 @@ func aggregate(items []Interaction) (Totals, []ProjectStats, Timeline, []SourceB
 		sb.Prompts++
 		sb.Tokens += tokens
 
-		if _, ok := sourceSessions[item.SourceID]; !ok {
-			sourceSessions[item.SourceID] = make(map[string]struct{})
+		if item.SessionID != "" {
+			if _, ok := sourceSessions[item.SourceID]; !ok {
+				sourceSessions[item.SourceID] = make(map[string]struct{})
+			}
+			sourceSessions[item.SourceID][item.SessionID] = struct{}{}
+		} else {
+			sourceEmptyTimes[item.SourceID] = append(sourceEmptyTimes[item.SourceID], item.Timestamp)
 		}
-		sourceSessions[item.SourceID][item.SessionID] = struct{}{}
 	}
 
-	totals.Sessions = len(allSessions)
+	totals.Sessions = countSessions(items)
 	totals.ActiveDays = len(allDays)
 	totals.Projects = len(projectMap)
 	totals.Sources = len(sourceMap)
@@ -776,7 +784,7 @@ func aggregate(items []Interaction) (Totals, []ProjectStats, Timeline, []SourceB
 			Source:     c.source,
 			SourceID:   c.sourceID,
 			Prompts:    c.prompts,
-			Sessions:   len(c.sessions),
+			Sessions:   len(c.sessions) + countSessionTimes(c.emptyTimes),
 			First:      c.first.Format("2006-01-02"),
 			Last:       c.last.Format("2006-01-02"),
 			ActiveDays: len(c.days),
@@ -794,7 +802,7 @@ func aggregate(items []Interaction) (Totals, []ProjectStats, Timeline, []SourceB
 
 	breakdown := make([]SourceBreakdown, 0, len(sourceMap))
 	for _, sb := range sourceMap {
-		sb.Sessions = len(sourceSessions[sb.ID])
+		sb.Sessions = len(sourceSessions[sb.ID]) + countSessionTimes(sourceEmptyTimes[sb.ID])
 		breakdown = append(breakdown, *sb)
 	}
 	sort.Slice(breakdown, func(i, j int) bool { return breakdown[i].Prompts > breakdown[j].Prompts })
@@ -807,6 +815,7 @@ func buildTimeline(items []Interaction) Timeline {
 	months := make(map[string]*MonthStats)
 	monthDays := make(map[string]map[string]struct{})
 	allSessions := make(map[string]map[string]struct{})
+	weekEmptyTimes := make(map[string][]time.Time)
 	totalTokens := 0
 	var earliest, latest time.Time
 
@@ -842,10 +851,14 @@ func buildTimeline(items []Interaction) Timeline {
 		ws.Tokens += tokens
 		ws.Projects[item.Project]++
 
-		if _, ok := allSessions[weekKey]; !ok {
-			allSessions[weekKey] = make(map[string]struct{})
+		if item.SessionID != "" {
+			if _, ok := allSessions[weekKey]; !ok {
+				allSessions[weekKey] = make(map[string]struct{})
+			}
+			allSessions[weekKey][item.SourceID+":"+item.SessionID] = struct{}{}
+		} else {
+			weekEmptyTimes[weekKey] = append(weekEmptyTimes[weekKey], item.Timestamp)
 		}
-		allSessions[weekKey][item.SourceID+":"+item.SessionID] = struct{}{}
 
 		monthKey := item.Timestamp.Format("2006-01")
 		ms, ok := months[monthKey]
@@ -864,7 +877,7 @@ func buildTimeline(items []Interaction) Timeline {
 
 	weekList := make([]WeekStats, 0, len(weeks))
 	for key, ws := range weeks {
-		ws.Sessions = len(allSessions[key])
+		ws.Sessions = len(allSessions[key]) + countSessionTimes(weekEmptyTimes[key])
 		counts := make([]ProjectCount, 0, len(ws.Projects))
 		for name, count := range ws.Projects {
 			counts = append(counts, ProjectCount{Name: name, Prompts: count})
@@ -979,11 +992,46 @@ func projectName(path string, fallback string) string {
 	return name
 }
 
-func fallbackSession(id string, source string, index int) string {
-	if id != "" {
-		return id
+const sessionGap = 30 * time.Minute
+
+// countSessionTimes counts sessions in one (source+project) bucket of timestamps:
+// a new session starts whenever the gap to the previous prompt exceeds sessionGap.
+func countSessionTimes(times []time.Time) int {
+	if len(times) == 0 {
+		return 0
 	}
-	return fmt.Sprintf("%s-session-%d", source, index)
+	sort.Slice(times, func(i, j int) bool { return times[i].Before(times[j]) })
+	n := 1
+	for i := 1; i < len(times); i++ {
+		if times[i].Sub(times[i-1]) > sessionGap {
+			n++
+		}
+	}
+	return n
+}
+
+// countSessions counts sessions across items: items with a real SessionID count
+// as one per distinct SourceID:SessionID; items without one are grouped by
+// SourceID+Project and split by sessionGap.
+func countSessions(items []Interaction) int {
+	withID := make(map[string]struct{})
+	grouped := make(map[string][]time.Time)
+	for _, it := range items {
+		if it.Timestamp.IsZero() {
+			continue
+		}
+		if it.SessionID != "" {
+			withID[it.SourceID+":"+it.SessionID] = struct{}{}
+			continue
+		}
+		k := it.SourceID + ":" + it.Project
+		grouped[k] = append(grouped[k], it.Timestamp)
+	}
+	total := len(withID)
+	for _, times := range grouped {
+		total += countSessionTimes(times)
+	}
+	return total
 }
 
 func unixFlexible(ts int64) time.Time {
