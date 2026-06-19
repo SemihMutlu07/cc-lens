@@ -113,17 +113,65 @@ func TestStatsMath_EstimateTokens(t *testing.T) {
 	}
 }
 
+func minute(y int, m time.Month, d, h, min int) time.Time {
+	return time.Date(y, m, d, h, min, 0, 0, time.UTC)
+}
+
 func TestStatsMath_SessionsBaseline(t *testing.T) {
 	items := []Interaction{
-		mkItem("gemini", "p", "gemini-session-0", day(2026, time.January, 1, 10), 10),
-		mkItem("gemini", "p", "gemini-session-1", day(2026, time.January, 1, 11), 10),
-		mkItem("gemini", "p", "gemini-session-2", day(2026, time.January, 1, 12), 10),
+		mkItem("gemini", "p", "", minute(2026, time.January, 1, 10, 0), 10),
+		mkItem("gemini", "p", "", minute(2026, time.January, 1, 10, 10), 10),
+		mkItem("gemini", "p", "", minute(2026, time.January, 1, 10, 20), 10),
 	}
 
 	totals, _, _, _ := aggregate(items)
 
-	// BASELINE: synthetic per-item session IDs inflate the count. Plan 004 changes this; update the expected value when 004 lands.
-	if totals.Sessions != 3 {
-		t.Fatalf("baseline session inflation: expected 3, got %d", totals.Sessions)
+	if totals.Sessions != 1 {
+		t.Fatalf("expected gap-clustered prompts within 30m to count as 1 session, got %d", totals.Sessions)
 	}
+}
+
+func TestSessions_GapClustering(t *testing.T) {
+	t.Run("burst within gap counts as one session", func(t *testing.T) {
+		items := []Interaction{
+			mkItem("gemini", "p", "", minute(2026, time.January, 1, 10, 0), 10),
+			mkItem("gemini", "p", "", minute(2026, time.January, 1, 10, 10), 10),
+			mkItem("gemini", "p", "", minute(2026, time.January, 1, 10, 20), 10),
+		}
+		if got := countSessions(items); got != 1 {
+			t.Fatalf("expected 1 session, got %d", got)
+		}
+	})
+
+	t.Run("prompt after gap starts a new session", func(t *testing.T) {
+		items := []Interaction{
+			mkItem("gemini", "p", "", minute(2026, time.January, 1, 10, 0), 10),
+			mkItem("gemini", "p", "", minute(2026, time.January, 1, 10, 10), 10),
+			mkItem("gemini", "p", "", minute(2026, time.January, 1, 10, 20), 10),
+			mkItem("gemini", "p", "", minute(2026, time.January, 1, 12, 20), 10),
+		}
+		if got := countSessions(items); got != 2 {
+			t.Fatalf("expected 2 sessions, got %d", got)
+		}
+	})
+
+	t.Run("distinct real session ids each count separately", func(t *testing.T) {
+		items := []Interaction{
+			mkItem("claude", "p", "session-a", minute(2026, time.January, 1, 10, 0), 10),
+			mkItem("claude", "p", "session-b", minute(2026, time.January, 1, 10, 5), 10),
+		}
+		if got := countSessions(items); got != 2 {
+			t.Fatalf("expected 2 sessions, got %d", got)
+		}
+	})
+
+	t.Run("empty-id prompts in different projects are independent buckets", func(t *testing.T) {
+		items := []Interaction{
+			mkItem("gemini", "project-a", "", minute(2026, time.January, 1, 10, 0), 10),
+			mkItem("gemini", "project-b", "", minute(2026, time.January, 1, 10, 0), 10),
+		}
+		if got := countSessions(items); got != 2 {
+			t.Fatalf("expected 2 sessions, got %d", got)
+		}
+	})
 }
