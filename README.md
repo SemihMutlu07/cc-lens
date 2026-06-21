@@ -11,7 +11,7 @@ Local-first "AI Coding Wrapped" for Claude Code, Codex, Gemini/Antigravity, Cont
 - **Multi-source parsing:** Reads session history from 11+ AI coding tools (Claude Code, Codex, Gemini, Continue, Aider, Cursor, OpenCode, pi, and more).
 - **Resolved Loops detection:** Scans your Claude Code and Codex session logs for verification commands (`go test`, `npm test`, `pytest`, etc.) that failed and then later passed in the same session — evidence-backed "loops escaped", not vibes.
 - **Shareable terminal cards:** Renders a terminal-style card with a headline count (`7 loops escaped`), a `stuck → recovery → verified` trace, and a playful label. Exportable as SVG.
-- **Privacy by default:** Project names are masked as stable codenames (`fuzzling`, `noodling`). One click to reveal.
+- **Privacy by default:** Individual project names are never rendered — the dashboard shows aggregate counts only, so a shared screenshot leaks nothing.
 - **Zero cloud:** The server binds to `127.0.0.1` and makes no outbound calls.
 
 ## Quick Start
@@ -145,8 +145,8 @@ wrapminal is built to be a closed, local system:
 
 - **Nothing is uploaded.** The app makes no outbound network calls — it only reads local files and serves a page to your browser.
 - **Local-only by default.** The server binds to `127.0.0.1`, so nothing on your network can reach it. (Override with `WRAPMINAL_HOST=0.0.0.0` only if you deliberately want to expose it, e.g. inside a container.)
-- **Aggregates only.** Raw prompts are never rendered — only counts, dates, project names, and **estimated** tokens (a `chars / 4` approximation, labeled as such in the UI).
-- **Masked by default.** Project names render as fixed, length-independent codenames (e.g. `fuzzling`, `noodling`) — a shared screenshot leaks neither the real name nor its length. One button (Reveal) toggles between the codename and the real name.
+- **Aggregates only.** Raw prompts are never rendered — only counts, dates, and per-source / per-week totals.
+- **No project names, no token guesses.** The dashboard shows the aggregate project *count* only — individual project names are never rendered, so a shared screenshot leaks nothing. Token counts are deliberately omitted: a local `chars / 4` estimate undercounts real billed usage by ~10–20× (it can't see re-sent context), so showing it would mislead.
 
 ## From source
 
