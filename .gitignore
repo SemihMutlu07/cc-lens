@@ -2,14 +2,14 @@ server
 claude-stats
 
 # build artifacts
-/cc-lens
+/wrapminal
 /dist/
 *.tgz
 
 # npm wrapper deps
 npm/node_modules/
 
-# unrelated nested project (not part of cc-lens)
+# unrelated nested project (not part of wrapminal)
 french_anki_p/
 
 # personal / local-only — never publish
@@ -17,7 +17,7 @@ AGENTS.md
 SCRATCHPAD.md
 .remember/
 
-# local agent tooling (not part of cc-lens)
+# local agent tooling (not part of wrapminal)
 .agents/
 .claude/
 skills-lock.json

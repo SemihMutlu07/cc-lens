@@ -10,7 +10,7 @@ import (
 
 func TestAPIHandlersReturnJSON(t *testing.T) {
 	home := seedHistory(t)
-	t.Setenv("CC_LENS_HOME", home)
+	t.Setenv("WRAPMINAL_HOME", home)
 
 	tests := []struct {
 		name string

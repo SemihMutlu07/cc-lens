@@ -165,7 +165,7 @@ type sourceParser struct {
 	parse func(home string) ([]Interaction, SourceStatus)
 }
 
-// sourceRegistry is the single list of tools cc-lens scans. JSONL-backed tools
+// sourceRegistry is the single list of tools wrapminal scans. JSONL-backed tools
 // are parsed into dated prompts; SQLite tools are read best-effort; the rest are
 // probed (found/not found) so the dashboard can honestly say what it sees.
 func sourceRegistry() []sourceParser {
@@ -221,7 +221,7 @@ func BuildWrapped() (*WrappedResponse, error) {
 }
 
 func ccLensHome() (string, error) {
-	if override := os.Getenv("CC_LENS_HOME"); override != "" {
+	if override := os.Getenv("WRAPMINAL_HOME"); override != "" {
 		return override, nil
 	}
 	return os.UserHomeDir()

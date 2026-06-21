@@ -1,4 +1,4 @@
-module github.com/SemihMutlu07/cc-lens
+module github.com/SemihMutlu07/wrapminal
 
 go 1.25.8
 

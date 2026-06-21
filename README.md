@@ -1,8 +1,8 @@
-# cc-lens
+# wrapminal
 
 Local-first "AI Coding Wrapped" for Claude Code, Codex, Gemini/Antigravity, Continue, Aider, Cursor, OpenCode, and other agent tools.
 
-`cc-lens` runs as a tiny local web app. It scans the agent history files already on your machine, shows an aggregate, screenshot-friendly summary, and **never uploads anything**. Raw prompts stay on disk — only counts and dates are rendered.
+`wrapminal` runs as a tiny local web app. It scans the agent history files already on your machine, shows an aggregate, screenshot-friendly summary, and **never uploads anything**. Raw prompts stay on disk — only counts and dates are rendered.
 
 ![Dashboard](assets/dashboard.png)
 
@@ -16,12 +16,12 @@ Local-first "AI Coding Wrapped" for Claude Code, Codex, Gemini/Antigravity, Cont
 
 ## Quick Start
 
-You do **not** need Go or any toolchain to run cc-lens — every option below downloads a prebuilt, self-contained binary. Pick the one that matches what you already have.
+You do **not** need Go or any toolchain to run wrapminal — every option below downloads a prebuilt, self-contained binary. Pick the one that matches what you already have.
 
 ### 1. One-line install — *needs: `curl`/`bash` (preinstalled on macOS & Linux)*
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/SemihMutlu07/cc-lens/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/SemihMutlu07/wrapminal/main/install.sh | bash
 ```
 
 Downloads the right binary for your OS, adds it to your `PATH`, and launches the dashboard.
@@ -32,22 +32,22 @@ The app is a single static binary. Grab the one for your machine, make it execut
 
 ```bash
 # macOS Apple Silicon
-curl -L https://github.com/SemihMutlu07/cc-lens/releases/latest/download/cc-lens-darwin-arm64 -o cc-lens
-# macOS Intel:  cc-lens-darwin-amd64
-# Linux x64:    cc-lens-linux-amd64
-# Linux arm64:  cc-lens-linux-arm64
-chmod +x cc-lens
-./cc-lens
+curl -L https://github.com/SemihMutlu07/wrapminal/releases/latest/download/wrapminal-darwin-arm64 -o wrapminal
+# macOS Intel:  wrapminal-darwin-amd64
+# Linux x64:    wrapminal-linux-amd64
+# Linux arm64:  wrapminal-linux-arm64
+chmod +x wrapminal
+./wrapminal
 ```
 
-Windows: download `cc-lens-windows-amd64.exe` from the [latest release](https://github.com/SemihMutlu07/cc-lens/releases/latest) and run it.
+Windows: download `wrapminal-windows-amd64.exe` from the [latest release](https://github.com/SemihMutlu07/wrapminal/releases/latest) and run it.
 
-> **macOS Gatekeeper:** the binary is unsigned, so the first launch may be blocked ("cannot be opened"). Allow it once with `xattr -d com.apple.quarantine ./cc-lens`, or right-click the file → **Open**.
+> **macOS Gatekeeper:** the binary is unsigned, so the first launch may be blocked ("cannot be opened"). Allow it once with `xattr -d com.apple.quarantine ./wrapminal`, or right-click the file → **Open**.
 
 ### 3. npx — *needs: Node.js ≥ 16*
 
 ```bash
-npx cclens
+npx wrapminal
 ```
 
 Then open:
@@ -61,8 +61,8 @@ http://localhost:8080
 From source (needs Go):
 
 ```bash
-git clone https://github.com/SemihMutlu07/cc-lens.git
-cd cc-lens
+git clone https://github.com/SemihMutlu07/wrapminal.git
+cd wrapminal
 
 # Run the full test suite
 go test ./...
@@ -105,7 +105,7 @@ You should see something like:
 
 ## Sources
 
-cc-lens scans for many tools and honestly reports what it can see: **loaded** (prompts parsed into the summary) or **detected** (found on disk, parser pending). Tools that aren't installed are simply hidden — no noise for things you never had.
+wrapminal scans for many tools and honestly reports what it can see: **loaded** (prompts parsed into the summary) or **detected** (found on disk, parser pending). Tools that aren't installed are simply hidden — no noise for things you never had.
 
 | Tool | Status | Notes |
 | --- | --- | --- |
@@ -121,11 +121,11 @@ cc-lens scans for many tools and honestly reports what it can see: **loaded** (p
 | pi | Loaded | Reads `~/.pi/agent/sessions/<project>/*.jsonl`; per-project, one real session per file |
 | hermes | Detected | Probed at common paths; local format not confirmed yet |
 
-Adding a tool is one row in `sourceRegistry()` (`parser.go`). Sources we can find but not parse stay **detected** — cc-lens never invents data.
+Adding a tool is one row in `sourceRegistry()` (`parser.go`). Sources we can find but not parse stay **detected** — wrapminal never invents data.
 
 ## Resolved Loops
 
-The headline feature. cc-lens scans your Claude Code and Codex session logs for:
+The headline feature. wrapminal scans your Claude Code and Codex session logs for:
 
 1. A verification command (`go test`, `npm test`, `pytest`, `cargo test`, etc.)
 2. That command failing (exit code ≠ 0)
@@ -141,10 +141,10 @@ The dashboard renders this as a terminal-style card with:
 
 ## Privacy & Safety
 
-cc-lens is built to be a closed, local system:
+wrapminal is built to be a closed, local system:
 
 - **Nothing is uploaded.** The app makes no outbound network calls — it only reads local files and serves a page to your browser.
-- **Local-only by default.** The server binds to `127.0.0.1`, so nothing on your network can reach it. (Override with `CC_LENS_HOST=0.0.0.0` only if you deliberately want to expose it, e.g. inside a container.)
+- **Local-only by default.** The server binds to `127.0.0.1`, so nothing on your network can reach it. (Override with `WRAPMINAL_HOST=0.0.0.0` only if you deliberately want to expose it, e.g. inside a container.)
 - **Aggregates only.** Raw prompts are never rendered — only counts, dates, project names, and **estimated** tokens (a `chars / 4` approximation, labeled as such in the UI).
 - **Masked by default.** Project names render as fixed, length-independent codenames (e.g. `fuzzling`, `noodling`) — a shared screenshot leaks neither the real name nor its length. One button (Reveal) toggles between the codename and the real name.
 
@@ -153,8 +153,8 @@ cc-lens is built to be a closed, local system:
 *Needs: Go.* Only required if you want to build from source instead of using a release binary.
 
 ```bash
-git clone https://github.com/SemihMutlu07/cc-lens.git
-cd cc-lens
+git clone https://github.com/SemihMutlu07/wrapminal.git
+cd wrapminal
 go run .
 ```
 
@@ -163,14 +163,14 @@ go run .
 | Env var | Default | Purpose |
 | --- | --- | --- |
 | `PORT` | `8080` | Port to serve on |
-| `CC_LENS_HOST` | `127.0.0.1` | Bind address (loopback by default) |
-| `CC_LENS_HOME` | your home dir | Root to scan for history files |
-| `CC_LENS_NO_BROWSER` | unset | Set to `1` to skip auto-opening the browser |
+| `WRAPMINAL_HOST` | `127.0.0.1` | Bind address (loopback by default) |
+| `WRAPMINAL_HOME` | your home dir | Root to scan for history files |
+| `WRAPMINAL_NO_BROWSER` | unset | Set to `1` to skip auto-opening the browser |
 
 ## Project structure
 
 ```
-cc-lens/
+wrapminal/
 ├── main.go                 # HTTP server, static file serving
 ├── parser.go               # Source registry, parsing, /api/wrapped handler
 ├── sqlite_sources.go       # SQLite-backed source parsers (Cursor, OpenCode)

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-// Thin launcher for cc-lens: downloads the matching prebuilt Go binary from
+// Thin launcher for wrapminal: downloads the matching prebuilt Go binary from
 // GitHub Releases on first run, caches it, then runs it. No runtime deps.
 // Pattern mirrors esbuild/swc npm wrappers. Local-first: nothing is uploaded.
 
@@ -11,7 +11,7 @@ const path = require('path');
 const https = require('https');
 const { spawn } = require('child_process');
 
-const REPO = 'SemihMutlu07/cc-lens';
+const REPO = 'SemihMutlu07/wrapminal';
 const VERSION = require('../package.json').version;
 
 // process.platform/arch -> GitHub release asset name (see .github/workflows/release.yml)
@@ -20,17 +20,17 @@ function assetName() {
   const goArch = archMap[process.arch];
 
   if (process.platform === 'win32') {
-    return goArch === 'amd64' ? 'cc-lens-windows-amd64.exe' : null;
+    return goArch === 'amd64' ? 'wrapminal-windows-amd64.exe' : null;
   }
   if (process.platform === 'darwin' || process.platform === 'linux') {
-    return goArch ? `cc-lens-${process.platform}-${goArch}` : null;
+    return goArch ? `wrapminal-${process.platform}-${goArch}` : null;
   }
   return null;
 }
 
 function cacheDir() {
   const base =
-    process.env.CCLENS_CACHE_DIR || path.join(os.homedir(), '.cache', 'cclens');
+    process.env.WRAPMINAL_CACHE_DIR || path.join(os.homedir(), '.cache', 'wrapminal');
   fs.mkdirSync(base, { recursive: true });
   return base;
 }
@@ -40,7 +40,7 @@ function download(url, dest) {
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(dest);
     https
-      .get(url, { headers: { 'User-Agent': 'cclens-npx' } }, (res) => {
+      .get(url, { headers: { 'User-Agent': 'wrapminal-npx' } }, (res) => {
         if (
           res.statusCode >= 300 &&
           res.statusCode < 400 &&
@@ -74,7 +74,7 @@ async function ensureBinary() {
   const asset = assetName();
   if (!asset) {
     console.error(
-      `cclens: unsupported platform ${process.platform}/${process.arch}.\n` +
+      `wrapminal: unsupported platform ${process.platform}/${process.arch}.\n` +
         `Grab a binary from https://github.com/${REPO}/releases/latest`
     );
     process.exit(1);
@@ -86,7 +86,7 @@ async function ensureBinary() {
   }
 
   const url = `https://github.com/${REPO}/releases/download/v${VERSION}/${asset}`;
-  process.stderr.write(`cclens: downloading ${asset} (v${VERSION})...\n`);
+  process.stderr.write(`wrapminal: downloading ${asset} (v${VERSION})...\n`);
 
   const tmp = `${binPath}.${process.pid}.tmp`;
   await download(url, tmp);
@@ -102,7 +102,7 @@ ensureBinary()
       env: process.env,
     });
     child.on('error', (err) => {
-      console.error(`cclens: failed to launch: ${err.message}`);
+      console.error(`wrapminal: failed to launch: ${err.message}`);
       process.exit(1);
     });
     child.on('exit', (code, signal) => {
@@ -111,6 +111,6 @@ ensureBinary()
     });
   })
   .catch((err) => {
-    console.error(`cclens: ${err.message}`);
+    console.error(`wrapminal: ${err.message}`);
     process.exit(1);
   });

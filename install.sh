@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo="SemihMutlu07/cc-lens"
-version="${CC_LENS_VERSION:-latest}"
-bin_dir="${CC_LENS_BIN_DIR:-$HOME/.local/bin}"
+repo="SemihMutlu07/wrapminal"
+version="${WRAPMINAL_VERSION:-latest}"
+bin_dir="${WRAPMINAL_BIN_DIR:-$HOME/.local/bin}"
 run_after_install=1
 
 if [[ "${1:-}" == "--no-run" ]]; then
@@ -25,7 +25,7 @@ case "$arch" in
   *) echo "Unsupported architecture: $arch" >&2; exit 1 ;;
 esac
 
-asset="cc-lens-${os}-${arch}"
+asset="wrapminal-${os}-${arch}"
 if [[ "$version" == "latest" ]]; then
   url="https://github.com/${repo}/releases/latest/download/${asset}"
 else
@@ -33,7 +33,7 @@ else
 fi
 
 mkdir -p "$bin_dir"
-target="$bin_dir/cc-lens"
+target="$bin_dir/wrapminal"
 
 echo "Downloading $asset..."
 if command -v curl >/dev/null 2>&1; then
@@ -46,7 +46,7 @@ else
 fi
 
 chmod +x "$target"
-echo "Installed cc-lens to $target (prebuilt binary — no Go or Node required)"
+echo "Installed wrapminal to $target (prebuilt binary — no Go or Node required)"
 
 ensure_on_path() {
   case ":$PATH:" in
@@ -60,14 +60,14 @@ ensure_on_path() {
     *) rc="$HOME/.profile" ;;
   esac
 
-  local marker="# added by cc-lens installer"
+  local marker="# added by wrapminal installer"
   local line="export PATH=\"$bin_dir:\$PATH\"  $marker"
 
   if [[ -n "$rc" ]] && ! grep -qsF "$marker" "$rc"; then
     printf '\n%s\n' "$line" >> "$rc"
     echo "Added $bin_dir to PATH in $rc"
   fi
-  echo "Run this to use 'cc-lens' in the current shell (or restart it):"
+  echo "Run this to use 'wrapminal' in the current shell (or restart it):"
   echo "  export PATH=\"$bin_dir:\$PATH\""
 }
 ensure_on_path

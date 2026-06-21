@@ -1,11 +1,10 @@
 {
-  "name": "cclens",
-  "version": "1.1.0",
+  "name": "wrapminal",
+  "version": "1.2.0",
   "license": "MIT",
   "description": "Local-first AI Coding Wrapped for Claude Code, Codex, Gemini and other agent CLIs. Runs a tiny local web app; your prompts never leave your machine.",
   "bin": {
-    "cclens": "bin/cc-lens.js",
-    "cc-lens": "bin/cc-lens.js"
+    "wrapminal": "bin/wrapminal.js"
   },
   "files": [
     "bin/"
@@ -20,13 +19,13 @@
     "local-first",
     "dashboard"
   ],
-  "homepage": "https://github.com/SemihMutlu07/cc-lens#readme",
+  "homepage": "https://github.com/SemihMutlu07/wrapminal#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SemihMutlu07/cc-lens.git"
+    "url": "git+https://github.com/SemihMutlu07/wrapminal.git"
   },
   "bugs": {
-    "url": "https://github.com/SemihMutlu07/cc-lens/issues"
+    "url": "https://github.com/SemihMutlu07/wrapminal/issues"
   },
   "engines": {
     "node": ">=16"

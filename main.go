@@ -28,9 +28,9 @@ func main() {
 	}
 
 	// Local-first: bind to loopback only so nothing on the network can reach
-	// the dashboard. Override with CC_LENS_HOST=0.0.0.0 only if you really mean
+	// the dashboard. Override with WRAPMINAL_HOST=0.0.0.0 only if you really mean
 	// to expose it (e.g. inside a container with port mapping).
-	host := os.Getenv("CC_LENS_HOST")
+	host := os.Getenv("WRAPMINAL_HOST")
 	if host == "" {
 		host = "127.0.0.1"
 	}
@@ -40,7 +40,7 @@ func main() {
 	http.HandleFunc("/api/wrapped", handleWrapped)
 	http.Handle("/", http.FileServer(http.FS(staticFS)))
 
-	fmt.Println("cc-lens Agent Wrapped -> " + url + "  (local only, nothing is uploaded)")
+	fmt.Println("wrapminal Agent Wrapped -> " + url + "  (local only, nothing is uploaded)")
 	go openBrowser(url)
 	log.Fatal(http.ListenAndServe(addr, nil))
 }
@@ -61,7 +61,7 @@ func writeJSON(w http.ResponseWriter, value any, err error) {
 }
 
 func openBrowser(url string) {
-	if os.Getenv("CC_LENS_NO_BROWSER") == "1" {
+	if os.Getenv("WRAPMINAL_NO_BROWSER") == "1" {
 		return
 	}
 	time.Sleep(250 * time.Millisecond)

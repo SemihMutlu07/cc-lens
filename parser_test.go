@@ -8,7 +8,7 @@ import (
 
 func TestBuildWrappedParsesLocalJSONHistories(t *testing.T) {
 	home := seedHistory(t)
-	t.Setenv("CC_LENS_HOME", home)
+	t.Setenv("WRAPMINAL_HOME", home)
 
 	wrapped, err := BuildWrapped()
 	if err != nil {

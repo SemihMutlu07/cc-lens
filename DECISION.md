@@ -2,7 +2,7 @@
 
 ## Differentiation
 
-cc_lens turns local agent history into evidence-backed stories of how you got stuck, recovered, and verified the result—not another dashboard of tokens and costs.
+wrapminal turns local agent history into evidence-backed stories of how you got stuck, recovered, and verified the result—not another dashboard of tokens and costs.
 
 ## Metric presentation
 
