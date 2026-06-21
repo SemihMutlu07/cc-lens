@@ -138,6 +138,7 @@ type WrappedResponse struct {
 	GeneratedAt     string            `json:"generated_at"`
 	Sources         []SourceStatus    `json:"sources"`
 	Totals          Totals            `json:"totals"`
+	ResolvedLoops   ResolvedLoops     `json:"resolved_loops"`
 	Projects        []ProjectStats    `json:"projects"`
 	Timeline        Timeline          `json:"timeline"`
 	Highlights      []Highlight       `json:"highlights"`
@@ -173,7 +174,6 @@ func sourceRegistry() []sourceParser {
 		{"codex", "Codex CLI", parseCodex},
 		{"gemini", "Gemini / Antigravity", parseGemini},
 		{"continue", "Continue.dev", parseContinue},
-		{"aider", "Aider", parseAider},
 		{"cursor", "Cursor", parseCursor},
 		{"opencode", "OpenCode", parseOpenCode},
 		{"windsurf", "Windsurf / Codeium", probeWindsurf},
@@ -212,6 +212,7 @@ func BuildWrapped() (*WrappedResponse, error) {
 		GeneratedAt:     time.Now().Format(time.RFC3339),
 		Sources:         sources,
 		Totals:          totals,
+		ResolvedLoops:   detectResolvedLoops(home),
 		Projects:        projects,
 		Timeline:        timeline,
 		Highlights:      buildHighlights(interactions, projects, timeline, sourceBreakdown),

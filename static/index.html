@@ -202,6 +202,113 @@
     font-size: 0.72rem;
   }
 
+  .loop-card {
+    border: 3px solid var(--line);
+    background: #11130f;
+    color: #f8f3e7;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .loop-chrome {
+    min-height: 44px;
+    border-bottom: 2px solid #4d5147;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    color: #9fa594;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .terminal-dots {
+    display: flex;
+    gap: 7px;
+  }
+
+  .terminal-dots span {
+    width: 11px;
+    height: 11px;
+    border: 1px solid #050604;
+    border-radius: 50%;
+  }
+
+  .terminal-dots span:nth-child(1) { background: var(--red); }
+  .terminal-dots span:nth-child(2) { background: var(--amber); }
+  .terminal-dots span:nth-child(3) { background: var(--green); }
+
+  .loop-body {
+    display: grid;
+    grid-template-columns: minmax(250px, 0.75fr) minmax(0, 1.25fr);
+    gap: 28px;
+    padding: clamp(22px, 4vw, 42px);
+  }
+
+  .loop-command {
+    color: var(--green);
+    font-size: 0.76rem;
+    font-weight: 900;
+  }
+
+  .loop-count {
+    margin: 16px 0 8px;
+    font-family: var(--serif);
+    font-size: clamp(4rem, 10vw, 8.5rem);
+    font-weight: 900;
+    line-height: 0.78;
+    color: var(--green);
+  }
+
+  .loop-unit {
+    font-size: clamp(1.1rem, 2.4vw, 2rem);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .loop-label {
+    display: inline-block;
+    margin-top: 24px;
+    padding: 7px 10px;
+    border: 2px solid var(--green);
+    color: var(--green);
+    font-size: 0.72rem;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .loop-trace {
+    display: grid;
+    align-content: center;
+    gap: 12px;
+  }
+
+  .trace-line {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    border-bottom: 1px dashed #4d5147;
+    padding: 12px 0;
+    font-size: 0.82rem;
+  }
+
+  .trace-step { color: #9fa594; }
+  .trace-status { font-weight: 900; }
+  .trace-fail { color: #ff786b; }
+  .trace-work { color: var(--amber); }
+  .trace-pass { color: var(--green); }
+
+  .loop-proof {
+    margin: 8px 0 0;
+    color: #9fa594;
+    font-size: 0.7rem;
+    line-height: 1.5;
+  }
+
   .source-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -402,7 +509,8 @@
 
   @media (max-width: 980px) {
     .hero,
-    .split {
+    .split,
+    .loop-body {
       grid-template-columns: 1fr;
     }
 
@@ -446,6 +554,14 @@
       <p class="hero-copy" id="hero-copy">Reading local agent history. Raw prompts stay on your machine and are never rendered — only aggregate counts.</p>
     </div>
     <div class="scoreboard" id="scoreboard"></div>
+  </section>
+
+  <section class="band">
+    <div class="section-head">
+      <h2>Resolved loops</h2>
+      <span class="stamp">proof, not productivity theater</span>
+    </div>
+    <div id="resolved-loops"></div>
   </section>
 
   <section class="band">
@@ -510,6 +626,7 @@ const sampleWrapped = {
     { id: 'hermes', name: 'hermes', state: 'missing', records: 0, confidence: 'detected', message: 'No hermes storage found.' }
   ],
   totals: { prompts: 291, sessions: 42, projects: 9, sources: 3, active_days: 24, estimated_tokens: 118400 },
+  resolved_loops: { count: 7, sessions_scanned: 42, evidence: 'proven', example: { source: 'Claude Code', attempts: 3 } },
   highlights: [
     { title: 'Top project', value: 'letterboxd_wrapped', detail: '91 prompts via Claude Code' },
     { title: 'Main agent', value: 'Claude Code', detail: '184 prompts captured locally' },
@@ -596,11 +713,54 @@ function render(data) {
       : 'No parseable local history yet. Use Sample to preview the wrapped layout.';
 
   renderScoreboard(totals);
+  renderResolvedLoops(data.resolved_loops || {});
   renderSources(data.sources || []);
   renderHighlights(data.highlights || []);
   renderAgents(data.source_breakdown || []);
   renderProjects(data.projects || []);
   renderTimeline((data.timeline || {}).weeks || []);
+}
+
+function loopLabel(count) {
+  if (count === 1) return 'THE BUG BLINKED FIRST';
+  if (count < 5) return 'COMEBACK MERCHANT';
+  return 'ABSOLUTELY REFUSED TO QUIT';
+}
+
+function renderResolvedLoops(loops) {
+  const el = document.getElementById('resolved-loops');
+  const count = Number(loops.count || 0);
+  const example = loops.example || {};
+  const proven = loops.evidence === 'proven' && count > 0;
+  const attempts = Math.max(Number(example.attempts || 0), 2);
+
+  el.innerHTML = `
+    <article class="loop-card">
+      <div class="loop-chrome">
+        <div class="terminal-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+        <span>cc-lens / local evidence</span>
+      </div>
+      <div class="loop-body">
+        <div>
+          <div class="loop-command">$ cc-lens prove --recovery</div>
+          <div class="loop-count">${fmt(count)}</div>
+          <div class="loop-unit">${count === 1 ? 'loop escaped' : 'loops escaped'}</div>
+          <div class="loop-label">${proven ? esc(loopLabel(count)) : 'NOTHING GUESSED'}</div>
+        </div>
+        <div class="loop-trace">
+          ${proven ? `
+            <div class="trace-line"><span class="trace-step">01 / stuck</span><span>verification check</span><span class="trace-status trace-fail">FAILED</span></div>
+            <div class="trace-line"><span class="trace-step">02 / work</span><span>${fmt(attempts)} verification attempts</span><span class="trace-status trace-work">KEPT GOING</span></div>
+            <div class="trace-line"><span class="trace-step">03 / proof</span><span>later check in same session</span><span class="trace-status trace-pass">PASSED</span></div>
+            <p class="loop-proof">Example proven via ${esc(example.source || 'local agent history')}. Commands, prompts, and project names stay private.</p>
+          ` : `
+            <div class="trace-line"><span class="trace-step">scan</span><span>${fmt(loops.sessions_scanned || 0)} local sessions checked</span><span class="trace-status trace-work">COMPLETE</span></div>
+            <div class="trace-line"><span class="trace-step">proof</span><span>no failed → passing verification pair yet</span><span class="trace-status">NONE</span></div>
+            <p class="loop-proof">cc-lens will not infer progress from prose or prompt volume.</p>
+          `}
+        </div>
+      </div>
+    </article>`;
 }
 
 function renderScoreboard(totals) {
@@ -705,6 +865,11 @@ function renderTimeline(weeks) {
 
 function exportSVG() {
   if (!wrapped) return;
+  const loops = wrapped.resolved_loops || {};
+  if (loops.evidence === 'proven' && loops.count > 0) {
+    exportResolvedLoopsSVG(loops);
+    return;
+  }
   const totals = wrapped.totals || {};
   const highlights = (wrapped.highlights || []).slice(0, 4);
   const rows = highlights.map((h, i) => `
@@ -731,6 +896,41 @@ function exportSVG() {
   const a = document.createElement('a');
   a.href = url;
   a.download = 'cc-lens-wrapped.svg';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportResolvedLoopsSVG(loops) {
+  const count = Number(loops.count || 0);
+  const attempts = Math.max(Number((loops.example || {}).attempts || 0), 2);
+  const unit = count === 1 ? 'LOOP ESCAPED' : 'LOOPS ESCAPED';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+    <rect width="1200" height="675" fill="#f6f1e4"/>
+    <rect x="24" y="24" width="1152" height="627" rx="8" fill="#11130f" stroke="#16130f" stroke-width="8"/>
+    <path d="M24 82h1152" stroke="#4d5147" stroke-width="3"/>
+    <circle cx="58" cy="54" r="10" fill="#ff4f3e"/><circle cx="88" cy="54" r="10" fill="#ffc247"/><circle cx="118" cy="54" r="10" fill="#b7ff4a"/>
+    <text x="1030" y="61" fill="#9fa594" font-size="16" font-family="monospace">CC-LENS</text>
+    <text x="70" y="138" fill="#b7ff4a" font-size="20" font-family="monospace" font-weight="700">$ cc-lens prove --recovery</text>
+    <text x="70" y="354" fill="#b7ff4a" font-size="230" font-family="Georgia" font-weight="900">${escapeXML(count)}</text>
+    <text x="70" y="414" fill="#f8f3e7" font-size="42" font-family="monospace" font-weight="900">${unit}</text>
+    <rect x="70" y="472" width="430" height="50" fill="none" stroke="#b7ff4a" stroke-width="3"/>
+    <text x="90" y="505" fill="#b7ff4a" font-size="20" font-family="monospace" font-weight="900">${escapeXML(loopLabel(count))}</text>
+    <text x="650" y="214" fill="#9fa594" font-size="18" font-family="monospace">01 / STUCK</text>
+    <text x="860" y="214" fill="#ff786b" font-size="18" font-family="monospace" font-weight="900">CHECK FAILED</text>
+    <path d="M650 238h450" stroke="#4d5147" stroke-width="2" stroke-dasharray="8 8"/>
+    <text x="650" y="300" fill="#9fa594" font-size="18" font-family="monospace">02 / WORK</text>
+    <text x="860" y="300" fill="#ffc247" font-size="18" font-family="monospace" font-weight="900">${escapeXML(attempts)} ATTEMPTS</text>
+    <path d="M650 324h450" stroke="#4d5147" stroke-width="2" stroke-dasharray="8 8"/>
+    <text x="650" y="386" fill="#9fa594" font-size="18" font-family="monospace">03 / PROOF</text>
+    <text x="860" y="386" fill="#b7ff4a" font-size="18" font-family="monospace" font-weight="900">CHECK PASSED</text>
+    <text x="70" y="600" fill="#9fa594" font-size="16" font-family="monospace">Proven locally. Prompts, commands, and project names stay private.</text>
+  </svg>`;
+
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'cc-lens-resolved-loops.svg';
   a.click();
   URL.revokeObjectURL(url);
 }

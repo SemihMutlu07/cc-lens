@@ -15,3 +15,9 @@ french_anki_p/
 # personal / local-only — never publish
 AGENTS.md
 SCRATCHPAD.md
+.remember/
+
+# local agent tooling (not part of cc-lens)
+.agents/
+.claude/
+skills-lock.json
