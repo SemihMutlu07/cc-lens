@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>wrapminal — receipt</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#FAFAF5;--ink:#1A1A1A;--red:#E0301E;--muted:#999;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#e8e5dd;font-family:'JetBrains Mono',monospace;color:var(--ink);display:flex;justify-content:center;padding:40px 16px}
+.receipt{max-width:420px;width:100%;background:var(--paper);box-shadow:0 2px 20px rgba(0,0,0,.1);position:relative}
+.receipt::before,.receipt::after{content:'';display:block;height:6px;background:linear-gradient(135deg,var(--paper) 33%,transparent 33%,transparent 67%,var(--paper) 67%),linear-gradient(45deg,var(--paper) 33%,transparent 33%,transparent 67%,var(--paper) 67%);background-size:8px 8px;background-color:var(--ink)}
+h1{font-size:1.4rem;font-weight:800;letter-spacing:-.02em;text-align:center;padding:28px 20px 0;text-transform:uppercase}
+.subtitle{text-align:center;font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;padding:4px 20px 0}
+.date{text-align:center;font-size:.6rem;color:var(--muted);padding:4px 20px 18px}
+.dash{border:none;border-top:2px dashed var(--ink);margin:0 20px}
+.dash-thick{border:none;border-top:3px dotted var(--ink);margin:18px 20px}
+.items{padding:14px 20px}
+.item{display:flex;justify-content:space-between;font-size:.72rem;padding:5px 0;border-bottom:1px dotted #ddd}
+.item:last-child{border:none}
+.item-label{color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.item-val{font-weight:700}
+.loop-hero{border:2px dashed var(--red);margin:0 20px 18px;padding:18px;position:relative}
+.loop-hero::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 6px,rgba(224,48,30,.03) 6px,rgba(224,48,30,.03) 12px);pointer-events:none}
+.loop-big{font-size:4.5rem;font-weight:800;line-height:.8;color:var(--red);text-align:center}
+.loop-unit{font-size:.8rem;text-align:center;text-transform:uppercase;letter-spacing:.08em;margin:6px 0 14px;font-weight:700}
+.loop-label{display:inline-block;padding:4px 8px;border:1px solid var(--red);color:var(--red);font-size:.6rem;font-weight:700;text-transform:uppercase;margin:0 auto 12px;text-align:center;width:auto}
+.trace{font-size:.64rem;line-height:1.7}
+.trace-line{display:flex;justify-content:space-between}
+.trace-status{font-weight:700}
+.trace-fail{color:var(--red)}
+.trace-pass{color:#1a8a1a}
+.trace-work{color:#b8860b}
+.loop-evidence{font-size:.55rem;color:var(--muted);text-align:center;margin-top:10px}
+.section-head{font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:14px 20px 6px;font-weight:700}
+.bar-chart{padding:6px 20px 14px}
+.bar-row{display:flex;align-items:center;gap:8px;font-size:.62rem;margin:3px 0}
+.bar-fill{height:14px;background:var(--ink);min-width:4px;transition:width .5s}
+.bar-label{width:30px;text-align:right;color:var(--muted);flex-shrink:0}
+.bar-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.highlight-item{padding:5px 20px;border-bottom:1px dotted #ddd;font-size:.68rem;display:flex;justify-content:space-between}
+.highlight-item:last-child{border:none}
+.highlight-title{color:var(--muted)}
+.footer{text-align:center;padding:18px 20px 28px}
+.footer-text{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--red);margin-bottom:6px}
+.barcode{font-size:.3rem;letter-spacing:.15em;color:var(--muted);word-break:break-all;line-height:1.2;margin:10px 0}
+.privacy{font-size:.5rem;color:var(--muted);margin-top:8px}
+.btn-expo{display:block;margin:0 20px 18px;padding:10px;border:2px solid var(--ink);background:var(--paper);font:700 .65rem 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;width:calc(100% - 40px)}
+.btn-expo:hover{background:var(--ink);color:var(--paper)}
+@media(max-width:440px){body{padding:20px 8px}.receipt{box-shadow:none}}
+</style>
+</head>
+<body>
+<div class="receipt" id="receipt">
+  <h1>WRAPMINAL</h1>
+  <div class="subtitle">agent activity receipt</div>
+  <div class="date" id="receipt-date"></div>
+  <hr class="dash">
+  <div id="totals-items" class="items"></div>
+  <hr class="dash-thick">
+  <div class="section-head">★ special item</div>
+  <div id="loops-hero"></div>
+  <hr class="dash">
+  <div class="section-head">agent breakdown</div>
+  <div id="agent-breakdown" class="items"></div>
+  <hr class="dash">
+  <div class="section-head">highlights</div>
+  <div id="highlights-list"></div>
+  <hr class="dash">
+  <div class="section-head">weekly activity</div>
+  <div id="timeline-chart" class="bar-chart"></div>
+  <hr class="dash-thick">
+  <div class="footer">
+    <div class="footer-text">thank you for coding ⏎</div>
+    <div class="barcode" id="barcode">| | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | |</div>
+    <div style="font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em">keep building</div>
+    <div class="privacy">raw prompts stay local • nothing is uploaded</div>
+  </div>
+  <button class="btn-expo" id="export-btn">⎙ export receipt svg</button>
+</div>
+<script>
+async function load(){const r=await fetch('/api/wrapped');const d=await r.json();window.__d=d;render(d)}
+function fmt(n){return Number(n).toLocaleString()}
+function esc(s){const e=document.createElement('div');e.textContent=s;return e.innerHTML}
+function render(d){
+  const t=d.totals;
+  document.getElementById('receipt-date').textContent=new Date(d.generated_at).toLocaleDateString('en-US',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+  const items=[['Prompts',t.prompts],['Sessions',t.sessions],['Projects',t.projects],['Sources',t.sources],['Active days',t.active_days],['Est. tokens',t.estimated_tokens]];
+  document.getElementById('totals-items').innerHTML=items.map(([l,v])=>`<div class="item"><span class="item-label">${esc(l)}</span><span class="item-val">${fmt(v)}</span></div>`).join('');
+  // Loops hero
+  const l=d.resolved_loops||{};const c=l.count||0;const p=l.evidence==='proven'&&c>0;
+  const ex=l.example||{};const at=Math.max(Number(ex.attempts||0),2);
+  const lb=c===1?'THE BUG BLINKED FIRST':c<5?'COMEBACK MERCHANT':'ABSOLUTELY REFUSED TO QUIT';
+  document.getElementById('loops-hero').innerHTML=p?`<div class="loop-hero"><div class="loop-big">${fmt(c)}</div><div class="loop-unit">loop${c!==1?'s':''} escaped</div><div style="text-align:center"><span class="loop-label">${esc(lb)}</span></div><div class="trace"><div class="trace-line"><span>01 / stuck</span><span>verification check</span><span class="trace-status trace-fail">FAILED</span></div><div class="trace-line"><span>02 / work</span><span>${fmt(at)} verification attempts</span><span class="trace-status trace-work">KEPT GOING</span></div><div class="trace-line"><span>03 / proof</span><span>later check in same session</span><span class="trace-status trace-pass">PASSED</span></div></div><div class="loop-evidence">proven via ${esc(ex.source||'local history')} · ${fmt(l.sessions_scanned)} sessions scanned</div></div>`:
+  `<div class="loop-hero"><div class="loop-big">—</div><div class="loop-unit">loops escaped</div><div style="text-align:center"><span class="loop-label">NOTHING GUESSED</span></div><div class="trace"><div class="trace-line"><span>scan</span><span>${fmt(l.sessions_scanned||0)} local sessions checked</span><span class="trace-status trace-pass">COMPLETE</span></div><div class="trace-line"><span>proof</span><span>no failed→passing verification pair</span><span class="trace-status">NONE</span></div></div><div class="loop-evidence">wrapminal does not infer progress from prose</div></div>`;
+  // Agents
+  document.getElementById('agent-breakdown').innerHTML=(d.source_breakdown||[]).map(s=>`<div class="item"><span class="item-label">${esc(s.name)}</span><span class="item-val">${fmt(s.prompts)}</span></div>`).join('');
+  // Highlights
+  document.getElementById('highlights-list').innerHTML=(d.highlights||[]).map(h=>`<div class="highlight-item"><span class="highlight-title">${esc(h.title)}</span><span>${esc(h.value)}</span></div>`).join('');
+  // Timeline
+  const weeks=(d.timeline&&d.timeline.weeks)||[];const max=Math.max(...weeks.map(w=>w.prompts),1);
+  document.getElementById('timeline-chart').innerHTML=weeks.slice(-10).map(w=>`<div class="bar-row"><span class="bar-label">${w.week.replace(/^\d{4}-W/,'W')}</span><span class="bar-fill" style="width:${(w.prompts/max*100).toFixed(0)}%"></span><span style="flex-shrink:0;width:36px;text-align:right">${fmt(w.prompts)}</span></div>`).join('');
+  // Barcode
+  const bc=document.getElementById('barcode');let b='';for(let i=0;i<60;i++){b+=Math.random()>.3?'█ ':'  '}bc.textContent=b;
+}
+function exportSVG(){
+  const d=window.__d;if(!d)return;const t=d.totals;const l=d.resolved_loops||{};const c=l.count||0;
+  const lb=c===1?'THE BUG BLINKED FIRST':c<5?'COMEBACK MERCHANT':'ABSOLUTELY REFUSED TO QUIT';
+  const rows=[['Prompts',t.prompts],['Sessions',t.sessions],['Projects',t.projects],['Sources',t.sources],['Active days',t.active_days]].map(([k,v],i)=>`<text x="40" y="${196+i*22}" font-size="11" font-family="monospace" fill="#999">${k}</text><text x="380" y="${196+i*22}" font-size="11" font-family="monospace" font-weight="700" text-anchor="end">${fmt(v)}</text>`).join('');
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="420" height="${c>0?620:540}" viewBox="0 0 420 ${c>0?620:540}"><rect width="420" height="${c>0?620:540}" fill="#FAFAF5"/><text x="210" y="44" font-size="18" font-family="monospace" font-weight="800" text-anchor="middle">WRAPMINAL</text><text x="210" y="62" font-size="9" font-family="monospace" fill="#999" text-anchor="middle">AGENT ACTIVITY RECEIPT</text><line x1="20" y1="78" x2="400" y2="78" stroke="#1A1A1A" stroke-dasharray="6,4"/><text x="210" y="110" font-size="16" font-family="monospace" font-weight="700" text-anchor="middle" fill="#E0301E">WRAPPED SUMMARY</text>${rows}${c>0?`<line x1="20" y1="${196+5*22}" x2="400" y2="${196+5*22}" stroke="#1A1A1A" stroke-dasharray="6,4"/><text x="210" y="${220+5*22}" font-size="10" font-family="monospace" font-weight="700" text-anchor="middle" fill="#E0301E">★ LOOPS ESCAPED</text><text x="210" y="${248+5*22}" font-size="40" font-family="monospace" font-weight="800" text-anchor="middle" fill="#E0301E">${fmt(c)}</text><text x="210" y="${268+5*22}" font-size="10" font-family="monospace" font-weight="700" text-anchor="middle">${lb}</text>`:''}<text x="210" y="${c>0?600:520}" font-size="8" font-family="monospace" fill="#999" text-anchor="middle">Raw prompts stay local · Generated by wrapminal</text></svg>`;
+  const b=new Blob([svg],{type:'image/svg+xml'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='wrapminal-receipt.svg';a.click();
+}
+document.getElementById('export-btn').addEventListener('click',exportSVG);
+load();
+</script>
+</body>
+</html>

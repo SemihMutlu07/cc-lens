@@ -3,19 +3,22 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
 
-// SQLite-backed sources (Cursor, OpenCode) are read best-effort: the on-disk
-// schemas are not a documented/stable public format, so we read what we can and
-// degrade gracefully. If a database is found but unreadable or unrecognized, the
-// source stays "detected" with an honest message instead of inventing data.
+// SQLite-backed sources (Cursor, OpenCode, hermes) are read best-effort: the
+// on-disk schemas are not a documented/stable public format, so we read what we
+// can and degrade gracefully. If a database is found but unreadable or
+// unrecognized, the source stays "detected" with an honest message instead of
+// inventing data.
 
 // openReadOnlySQLite opens a database without taking a write lock, so it is safe
-// to read while the owning app (Cursor/OpenCode) is running.
+// to read while the owning app (Cursor/OpenCode/hermes) is running.
 func openReadOnlySQLite(path string) (*sql.DB, error) {
 	return sql.Open("sqlite", "file:"+path+"?mode=ro&immutable=1&_pragma=busy_timeout(2000)")
 }
@@ -307,6 +310,248 @@ func openCodePartChars(db *sql.DB) map[string]int {
 		if json.Unmarshal([]byte(data.String), &p) == nil {
 			out[mid.String] += len(p.Text)
 		}
+	}
+	return out
+}
+
+// parseHermes reads Hermes' state.db SQLite file. It provides the richest data of
+// all sources: real input/output/reasoning/cache tokens, estimated USD cost per
+// session, model name, and cwd (project detection).
+//
+// Prompts are user-role messages from the messages table so that prompt counts
+// match the other sources (user turns, not every assistant/tool message).
+// Tokens and cost are taken from the session row and split evenly across the
+// user's messages in that session.
+func parseHermes(home string) ([]Interaction, SourceStatus) {
+	paths := []string{
+		filepath.Join(home, ".hermes", "state.db"),
+		filepath.Join(home, ".config", "hermes", "state.db"),
+	}
+	status := SourceStatus{
+		ID:         "hermes",
+		Name:       "hermes",
+		Path:       strings.Join(paths, ", "),
+		State:      "missing",
+		Confidence: "experimental",
+		Message:    "No hermes state database found.",
+	}
+
+	var dbPath string
+	for _, p := range paths {
+		if fileExists(p) {
+			dbPath = p
+			break
+		}
+	}
+	if dbPath == "" {
+		return nil, status
+	}
+
+	status.Path = dbPath
+	status.State = "detected"
+	status.Message = "Hermes state.db found, but sessions could not be read."
+
+	if !sqliteTablesContains(dbPath, []string{"sessions"}) {
+		return nil, status
+	}
+
+	db, err := openReadOnlySQLite(dbPath)
+	if err != nil {
+		return nil, status
+	}
+	defer db.Close()
+
+	cols := sqliteColumns(db, "sessions")
+	startedAtCol := pickColumn(cols, "started_at")
+	if startedAtCol == "" {
+		startedAtCol = pickColumn(cols, "created_at", "ts")
+	}
+	if startedAtCol == "" {
+		return nil, status
+	}
+
+	rows, err := db.Query(`SELECT id, source, cwd, model, ` + quoteIdent(startedAtCol) + `, ended_at,
+		input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, reasoning_tokens,
+		estimated_cost_usd, actual_cost_usd
+		FROM sessions WHERE archived = 0 OR archived IS NULL`)
+	if err != nil {
+		rows, err = db.Query(`SELECT id, source, cwd, model, ` + quoteIdent(startedAtCol) + `, ended_at,
+			input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, reasoning_tokens,
+			estimated_cost_usd, actual_cost_usd
+			FROM sessions`)
+		if err != nil {
+			return nil, status
+		}
+	}
+	defer rows.Close()
+
+	var items []Interaction
+	for rows.Next() {
+		var id sql.NullString
+		var source sql.NullString
+		var cwd sql.NullString
+		var model sql.NullString
+		var startedAt float64
+		var endedAt sql.NullFloat64
+		var inputTokens, outputTokens, cacheRead, cacheWrite, reasoning sql.NullInt64
+		var estimatedCost, actualCost sql.NullFloat64
+		if err := rows.Scan(&id, &source, &cwd, &model, &startedAt, &endedAt,
+			&inputTokens, &outputTokens, &cacheRead, &cacheWrite, &reasoning,
+			&estimatedCost, &actualCost); err != nil {
+			continue
+		}
+
+		ts := unixFlexible(int64(startedAt))
+		if startedAt > 1_000_000_000_000 {
+			ts = time.UnixMilli(int64(startedAt))
+		}
+		if ts.IsZero() {
+			continue
+		}
+
+		toks := 0
+		if inputTokens.Valid {
+			toks += int(inputTokens.Int64)
+		}
+		if outputTokens.Valid {
+			toks += int(outputTokens.Int64)
+		}
+		if cacheRead.Valid {
+			toks += int(cacheRead.Int64)
+		}
+		if cacheWrite.Valid {
+			toks += int(cacheWrite.Int64)
+		}
+		if reasoning.Valid {
+			toks += int(reasoning.Int64)
+		}
+
+		cost := 0.0
+		if actualCost.Valid && actualCost.Float64 > 0 {
+			cost = actualCost.Float64
+		} else if estimatedCost.Valid && estimatedCost.Float64 > 0 {
+			cost = estimatedCost.Float64
+		}
+
+		project := "hermes"
+		if cwd.Valid && cwd.String != "" {
+			project = projectName(cwd.String, "hermes")
+		} else if source.Valid && source.String != "" {
+			project = source.String
+		}
+
+		userMsgs := hermesUserMessages(db, id.String)
+		if len(userMsgs) == 0 {
+			// Fall back to one Interaction per session so the session still
+			// contributes tokens/cost to the totals.
+			items = append(items, Interaction{
+				Source:    "hermes",
+				SourceID:  "hermes",
+				Project:   project,
+				SessionID: id.String,
+				Timestamp: ts,
+				Chars:     0,
+				Tokens:    toks,
+				Cost:      cost,
+			})
+			continue
+		}
+
+		perMsgTokens := toks / len(userMsgs)
+		remainder := toks % len(userMsgs)
+		perMsgCost := cost / float64(len(userMsgs))
+		for i, m := range userMsgs {
+			msgTS := unixFlexible(int64(m.Timestamp))
+			if m.Timestamp > 1_000_000_000_000 {
+				msgTS = time.UnixMilli(int64(m.Timestamp))
+			}
+			if msgTS.IsZero() {
+				msgTS = ts
+			}
+			msgToks := perMsgTokens
+			if i < remainder {
+				msgToks++
+			}
+			items = append(items, Interaction{
+				Source:    "hermes",
+				SourceID:  "hermes",
+				Project:   project,
+				SessionID: id.String,
+				Timestamp: msgTS,
+				Chars:     len(m.Content),
+				Tokens:    msgToks,
+				Cost:      perMsgCost,
+			})
+		}
+	}
+
+	status.Records = len(items)
+	status.State = loadedState(items)
+	status.Message = loadedMessage(items, "Hermes sessions loaded with real token counts and cost estimates from state.db.")
+	if len(items) > 0 {
+		status.Message += fmt.Sprintf(" (%d sessions)", len(uniqueSessionIDs(items)))
+	}
+	return items, status
+}
+
+type hermesMessage struct {
+	Timestamp float64
+	Content   string
+}
+
+// hermesUserMessages returns dated user-role messages for a session.
+func hermesUserMessages(db *sql.DB, sessionID string) []hermesMessage {
+	rows, err := db.Query(`SELECT "timestamp", COALESCE("content", '') FROM messages
+		WHERE "session_id" = ? AND lower("role") = 'user'
+			AND ("active" = 1 OR "active" IS NULL)
+		ORDER BY "timestamp"`, sessionID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var out []hermesMessage
+	for rows.Next() {
+		var m hermesMessage
+		var content sql.NullString
+		if rows.Scan(&m.Timestamp, &content) != nil {
+			continue
+		}
+		m.Content = content.String
+		out = append(out, m)
+	}
+	return out
+}
+
+func sqliteTablesContains(dbPath string, needs []string) bool {
+	db, err := openReadOnlySQLite(dbPath)
+	if err != nil {
+		return false
+	}
+	defer db.Close()
+	got := make(map[string]bool)
+	for _, t := range sqliteTables(db) {
+		got[strings.ToLower(t)] = true
+	}
+	for _, n := range needs {
+		if !got[strings.ToLower(n)] {
+			return false
+		}
+	}
+	return true
+}
+
+func uniqueSessionIDs(items []Interaction) []string {
+	seen := make(map[string]struct{})
+	for _, it := range items {
+		if it.SessionID == "" {
+			continue
+		}
+		seen[it.SessionID] = struct{}{}
+	}
+	out := make([]string, 0, len(seen))
+	for k := range seen {
+		out = append(out, k)
 	}
 	return out
 }

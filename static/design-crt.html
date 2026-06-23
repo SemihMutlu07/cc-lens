@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>wrapminal — crt</title>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#060806;font-family:'JetBrains Mono',monospace;color:#ccffdd;display:flex;justify-content:center;align-items:center;min-height:100vh;padding:30px}
+.crt-shell{background:#0A0E0A;border-radius:24px;padding:3px;box-shadow:0 0 60px rgba(51,255,102,.08),inset 0 0 60px rgba(0,0,0,.6);max-width:800px;width:100%;position:relative;overflow:hidden}
+.crt-screen{padding:24px 28px 28px;position:relative;z-index:1}
+.scanlines{position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.08) 2px,rgba(0,0,0,.08) 4px);pointer-events:none;z-index:100}
+.vignette{position:fixed;inset:0;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.55) 100%);pointer-events:none;z-index:99}
+@keyframes flicker{0%,100%{opacity:1}50%{opacity:.97}}
+.crt-screen:not(.no-flicker){animation:flicker .15s infinite}
+.titlebar{display:flex;align-items:center;gap:12px;padding:0 0 12px;border-bottom:1px solid #1a3a1a;margin-bottom:16px;font-size:.75rem}
+.dots{display:flex;gap:7px}.dot{width:10px;height:10px;border-radius:50%}.dot-r{background:#ff4f3e}.dot-y{background:#ffc247}.dot-g{background:#33ff66}
+.prompt{color:#1a6a1a;flex:1;text-align:right;font-size:.65rem}
+.glow{text-shadow:0 0 8px rgba(51,255,102,.4),0 0 20px rgba(51,255,102,.15)}
+.glow-lg{text-shadow:0 0 12px rgba(51,255,102,.5),0 0 30px rgba(51,255,102,.2),0 0 60px rgba(51,255,102,.1)}
+.glow-amber{text-shadow:0 0 8px rgba(255,176,0,.4)}
+.line{font-size:.78rem;line-height:1.7;margin:2px 0}
+.line-s{font-size:.68rem;color:#88aa88}
+.cmd{color:#33ff66}.dim{color:#4a6a4a}.amber{color:#ffb000;text-shadow:0 0 6px rgba(255,176,0,.3)}
+.hiscores{border:1px solid #33ff66;padding:20px;text-align:center;margin:16px 0;position:relative}
+.hiscore-title{font-family:'VT323',monospace;font-size:3.5rem;line-height:.8;color:#33ff66;margin:6px 0 4px}
+.hiscore-label{font-size:.65rem;color:#88aa88;text-transform:uppercase;letter-spacing:.08em}
+.hiscore-badge{padding:4px 12px;border:1px solid #33ff66;color:#33ff66;font-size:.6rem;display:inline-block;text-transform:uppercase;margin:10px 0}
+.trace-crt{font-size:.72rem;line-height:1.6;text-align:left;max-width:360px;margin:12px auto 0}
+.ascii-table{font-size:.72rem;line-height:1.5;font-family:'JetBrains Mono',monospace;margin:10px 0}
+.ascii-table .th{color:#ffb000;text-shadow:0 0 6px rgba(255,176,0,.3)}
+.ascii-table .td{color:#ccffdd}
+.bar-crt{display:flex;align-items:center;gap:8px;margin:3px 0;font-size:.68rem}
+.bar-fill-crt{height:12px;background:#33ff66;min-width:3px;box-shadow:0 0 6px rgba(51,255,102,.3)}
+.cursor-blink{display:inline-block;width:8px;height:14px;background:#33ff66;animation:blink 1s step-end infinite;vertical-align:text-bottom;margin-left:4px}
+@keyframes blink{50%{opacity:0}}
+.btn-expo{padding:8px 16px;border:1px solid #33ff66;background:transparent;color:#33ff66;font:.65rem 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;margin-top:16px;width:100%}
+.btn-expo:hover{background:#33ff66;color:#0A0E0A}
+@media(max-width:640px){.crt-shell{border-radius:0;padding:0}body{padding:10px}.crt-screen{padding:16px}}
+@media (prefers-reduced-motion){.crt-screen:not(.no-flicker){animation:none}}
+</style>
+</head>
+<body>
+<div class="scanlines"></div><div class="vignette"></div>
+<div class="crt-shell"><div class="crt-screen" id="screen">
+  <div class="titlebar">
+    <div class="dots"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span></div>
+    <span>wrapminal@localhost:~$</span>
+    <span class="prompt">./wrapminal --wrapped</span>
+  </div>
+  <div id="content"></div>
+  <button class="btn-expo" id="export-btn">⎙ export.svg</button>
+  <div class="line-s" style="margin-top:10px">$ _<span class="cursor-blink"></span></div>
+</div></div>
+<script>
+async function load(){const r=await fetch('/api/wrapped');const d=await r.json();window.__d=d;render(d)}
+function fmt(n){return Number(n).toLocaleString()}
+function esc(s){const e=document.createElement('div');e.textContent=s;return e.innerHTML}
+function rnd(min,max){return Math.floor(Math.random()*(max-min+1)+min)}
+function render(d){
+  const t=d.totals;const l=d.resolved_loops||{};const c=l.count||0;const p=l.evidence==='proven'&&c>0;
+  const ex=l.example||{};const at=Math.max(Number(ex.attempts||0),2);
+  const lb=c===1?'THE BUG BLINKED FIRST':c<5?'COMEBACK MERCHANT':'ABSOLUTELY REFUSED TO QUIT';
+  let html='';
+  html+=`<div class="line cmd glow">$ ./wrapminal --wrapped</div>`;
+  html+=`<div class="line-s" style="margin:4px 0 12px">⏣ scanning local agent history...</div>`;
+  html+=`<div class="line" style="margin:0 0 14px"><span class="cmd">⏣ wrap complete.</span> <span class="dim">// ${fmt(t.prompts)} prompts, ${fmt(t.sessions)} sessions</span></div>`;
+  html+=`<div class="line" style="margin-bottom:4px"><span class="cmd">$ </span>totals</div>`;
+  html+=`<div class="line-s" style="margin:0 0 2px">  <span class="dim">prompts·············</span> <span class="glow">${fmt(t.prompts)}</span></div>`;
+  html+=`<div class="line-s" style="margin:0 0 2px">  <span class="dim">sessions············</span> <span class="glow">${fmt(t.sessions)}</span></div>`;
+  html+=`<div class="line-s" style="margin:0 0 2px">  <span class="dim">projects············</span> <span class="glow">${fmt(t.projects)}</span></div>`;
+  html+=`<div class="line-s" style="margin:0 0 2px">  <span class="dim">active days·········</span> <span class="glow">${fmt(t.active_days)}</span></div>`;
+  html+=`<div class="line-s" style="margin:0 0 14px">  <span class="dim">est. tokens·········</span> <span class="glow">${fmt(t.estimated_tokens)}</span></div>`;
+  if(p){
+    html+=`<div class="hiscores"><div class="hiscore-label dim">★★★ HIGH SCORE ★★★</div><div class="hiscore-title glow-lg">${fmt(c)}</div><div class="hiscore-label">loop${c!==1?'s':''} escaped</div><div class="hiscore-badge">${esc(lb)}</div><div class="trace-crt">`;
+    html+=`<div class="line-s">  [STUCK]  # verification check  <span class="amber">exit=1 FAIL</span></div>`;
+    html+=`<div class="line-s">  [WORK]   # ${fmt(at)} attempts       <span class="amber">≥2 retries</span></div>`;
+    html+=`<div class="line-s">  [PROOF]  # later same session  <span class="glow">exit=0 PASS → loop resolved</span></div>`;
+    html+=`<div class="line-s dim" style="margin-top:6px">  // proven via ${esc(ex.source||'local history')} · ${fmt(l.sessions_scanned)} sessions scanned</div></div></div>`;
+  } else {
+    html+=`<div class="line dim" style="margin:14px 0">⏣ no resolved loops detected</div>`;
+  }
+  // Agent breakdown
+  html+=`<div class="line" style="margin:16px 0 6px"><span class="cmd">$ </span>agent breakdown</div>`;
+  const agents=d.source_breakdown||[];
+  if(agents.length){
+    html+=`<pre class="ascii-table">┌${'─'.repeat(16)}┬${'─'.repeat(10)}┬${'─'.repeat(10)}┐\n`;
+    html+=`│<span class="th"> ${'AGENT'.padEnd(14)} </span>│<span class="th"> ${'PROMPTS'.padEnd(7)} </span>│<span class="th"> ${'SESSIONS'.padEnd(7)} </span>│\n`;
+    html+=`├${'─'.repeat(16)}┼${'─'.repeat(10)}┼${'─'.repeat(10)}┤\n`;
+    agents.forEach(s=>{html+=`│ ${esc(s.name).padEnd(14)} │ ${fmt(s.prompts).padStart(7)} │ ${fmt(s.sessions).padStart(7)} │\n`;});
+    html+=`└${'─'.repeat(16)}┴${'─'.repeat(10)}┴${'─'.repeat(10)}┘</pre>`;
+  }
+  // Timeline
+  const weeks=(d.timeline&&d.timeline.weeks)||[];const max=Math.max(...weeks.map(w=>w.prompts),1);
+  html+=`<div class="line" style="margin:14px 0 6px"><span class="cmd">$ </span>weekly activity (last ${Math.min(10,weeks.length)})</div>`;
+  weeks.slice(-10).forEach(w=>{
+    const bw=Math.round(w.prompts/max*24);const bar='█'.repeat(Math.max(bw,1));
+    html+=`<div class="bar-crt"><span class="dim" style="width:30px;text-align:right;flex-shrink:0">${w.week.replace(/^\d{4}-W/,'W')}</span><span class="bar-fill-crt" style="width:${bw*4}px"></span><span class="dim" style="width:36px;text-align:right">${fmt(w.prompts)}</span></div>`;
+  });
+  // Highlights
+  html+=`<div class="line" style="margin:14px 0 6px"><span class="cmd">$ </span>highlights</div>`;
+  (d.highlights||[]).forEach(h=>{
+    html+=`<div class="line-s">  [${esc(h.title).padEnd(18)}] ${esc(h.value)}  <span class="dim">// ${esc(h.detail)}</span></div>`;
+  });
+  document.getElementById('content').innerHTML=html;
+}
+function exportSVG(){
+  const d=window.__d;if(!d)return;const t=d.totals;const l=d.resolved_loops||{};const c=l.count||0;
+  const agents=d.source_breakdown||[];const highlights=d.highlights||[];
+  let rows='';let y=180;
+  [['prompts',t.prompts],['sessions',t.sessions],['projects',t.projects],['active days',t.active_days]].forEach(([k,v])=>{
+    rows+=`<text x="40" y="${y}" font-size="12" font-family="monospace" fill="#88aa88">${k}</text><text x="760" y="${y}" font-size="14" font-family="monospace" font-weight="700" fill="#33ff66" text-anchor="end">${fmt(v)}</text>`;y+=24;
+  });
+  const hly=[];
+  if(c>0){
+    hly.push(`<text x="400" y="${y+10}" font-size="28" font-family="VT323,monospace" fill="#33ff66" text-anchor="middle" font-weight="700">${fmt(c)} LOOPS ESCAPED</text>`);
+  }
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="800" height="${c>0?450:400}" viewBox="0 0 800 ${c>0?450:400}"><defs><filter id="g"><feGaussianBlur stdDeviation="2"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><rect width="800" height="${c>0?450:400}" fill="#0A0E0A"/><rect width="800" height="${c>0?450:400}" fill="url(#scanline)" opacity=".06"/><text x="40" y="40" font-size="16" font-family="monospace" fill="#33ff66" font-weight="700" filter="url(#g)">$ ./wrapminal --wrapped</text><text x="40" y="64" font-size="10" font-family="monospace" fill="#4a6a4a">wrapminal @ localhost</text><line x1="40" y1="80" x2="760" y2="80" stroke="#1a3a1a"/><text x="400" y="120" font-size="32" font-family="VT323,monospace" fill="#33ff66" text-anchor="middle" filter="url(#g)">WRAPMINAL</text><text x="400" y="148" font-size="12" font-family="monospace" fill="#88aa88" text-anchor="middle">AGENT CODING WRAPPED · LOCAL ONLY</text>${rows}${hly.join('')}<text x="400" y="${c>0?420:375}" font-size="9" font-family="monospace" fill="#4a6a4a" text-anchor="middle">generated by wrapminal · raw prompts stay local</text></svg>`;
+  const b=new Blob([svg],{type:'image/svg+xml'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='wrapminal-crt.svg';a.click();
+}
+document.getElementById('export-btn').addEventListener('click',exportSVG);
+load();
+</script>
+</body>
+</html>

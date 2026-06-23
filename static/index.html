@@ -2,988 +2,145 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>wrapminal — Agent Activity Receipt</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>wrapminal · activity</title>
 <style>
-  :root {
-    --paper:    #FAFAF5;
-    --paper-2: #F4F3EB;
-    --ink:      #1A1A1A;
-    --muted:    #999999;
-    --red:      #E0301E;
-    --line:     #1A1A1A;
-    --mono:     "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  }
-
-  * { box-sizing: border-box; }
-
-  html, body {
-    margin: 0;
-    min-height: 100%;
-  }
-
-  body {
-    /* Felt surface behind the receipt */
-    background:
-      radial-gradient(circle at 20% 10%, #e9e6d8 0%, transparent 50%),
-      radial-gradient(circle at 80% 90%, #e3ddca 0%, transparent 55%),
-      #d9d4c3;
-    color: var(--ink);
-    font-family: var(--mono);
-    font-weight: 400;
-    line-height: 1.5;
-    padding: 28px 12px 60px;
-    -webkit-font-smoothing: antialiased;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    /* Subtle receipt entrance — only for users who tolerate motion */
-    .receipt { animation: feed 480ms ease-out both; }
-    @keyframes feed {
-      from { opacity: 0; transform: translateY(-8px); }
-      to   { opacity: 1; transform: none; }
-    }
-  }
-
-  /* The receipt itself — narrow, centered, physical */
-  .receipt {
-    position: relative;
-    width: min(420px, calc(100% - 24px));
-    max-width: 420px;
-    margin: 0 auto;
-    padding: 30px 28px 34px;
-    background: var(--paper);
-    /* subtle paper grain — barely-there */
-    background-image:
-      linear-gradient(180deg, rgba(224,48,30,0.02) 0%, transparent 8%),
-      repeating-linear-gradient(0deg,
-        rgba(26,26,26,0.012) 0px,
-        rgba(26,26,26,0.012) 1px,
-        transparent 1px,
-        transparent 3px);
-    color: var(--ink);
-    font-size: 13px;
-    line-height: 1.55;
-    box-shadow:
-       0 1px 0 rgba(0,0,0,0.04),
-       0 8px 22px rgba(0,0,0,0.18),
-      10px 0 12px -10px rgba(0,0,0,0.12),
-     -10px 0 12px -10px rgba(0,0,0,0.12);
-    /* faint perforated edges */
-    border-left:  1px dashed rgba(26,26,26,0.14);
-    border-right: 1px dashed rgba(26,26,26,0.14);
-    overflow: hidden;
-  }
-
-  /* Zigzag top/bottom tears */
-  .receipt::before,
-  .receipt::after {
-    content: "";
-    position: absolute;
-    left: 0; right: 0;
-    height: 10px;
-    background:
-      linear-gradient(135deg, transparent 50%, var(--paper) 50%) 0 0 / 12px 10px,
-      linear-gradient( 45deg, transparent 50%, var(--paper) 50%) 0 0 / 12px 10px;
-    background-color: #d9d4c3; /* surface showing through teeth */
-  }
-  .receipt::before { top: -9px;    transform: scaleY(-1); }
-  .receipt::after  { bottom: -9px; }
-
-  /* --- Header (store logo look) --- */
-  .store {
-    text-align: center;
-    margin-bottom: 10px;
-  }
-  .store .logo {
-    font-weight: 800;
-    font-size: 30px;
-    letter-spacing: 0.22em;
-    margin-right: -0.22em; /* compensate trailing letter-spacing */
-    color: var(--ink);
-  }
-  .store .sub {
-    font-size: 10px;
-    letter-spacing: 0.32em;
-    text-transform: uppercase;
-    color: var(--red);
-    margin-top: 2px;
-  }
-  .store .branch {
-    font-size: 9px;
-    letter-spacing: 0.2em;
-    color: var(--muted);
-    margin-top: 3px;
-    text-transform: uppercase;
-  }
-  .store .dt {
-    font-size: 11px;
-    color: var(--ink);
-    margin-top: 8px;
-    letter-spacing: 0.04em;
-  }
-
-  /* --- Dashed receipt perforation separator --- */
-  .sep {
-    margin: 14px 0 12px;
-    border: 0;
-    border-top: 1px dashed var(--ink);
-    height: 0;
-    text-align: center;
-  }
-  .sep.tight { margin: 10px 0 8px; }
-  .sep.red { border-top: 1px dashed var(--red); }
-
-  /* --- Section captions --- */
-  .caption {
-    text-align: center;
-    font-size: 9px;
-    letter-spacing: 0.32em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin: 6px 0 8px;
-  }
-
-  /* --- Line items with dotted leaders --- */
-  .item {
-    display: flex;
-    align-items: baseline;
-    gap: 4px;
-    font-size: 13px;
-    margin: 2px 0;
-  }
-  .item .lbl {
-    white-space: nowrap;
-  }
-  .item .dots {
-    flex: 1 1 auto;
-    overflow: hidden;
-    color: var(--muted);
-    letter-spacing: 1px;
-    transform: translateY(-1px);
-    /* dotted leader */
-    background-image: radial-gradient(circle at center, currentColor 0.5px, transparent 1px);
-    background-size: 4px 4px;
-    background-repeat: repeat-x;
-    background-position: 0 50%;
-    height: 1em;
-  }
-  .item .val {
-    white-space: nowrap;
-    font-weight: 700;
-    text-align: right;
-  }
-  .item .val.accent { color: var(--red); }
-  .item .sub {
-    font-size: 10px;
-    color: var(--muted);
-    margin: 0 0 4px 0;
-  }
-
-  /* --- Resolved Loops — the hero / special item --- */
-  .loops {
-    margin: 16px 0;
-    padding: 12px 10px 14px;
-    text-align: center;
-    /* ASCII/dashed border box */
-    border: 2px dashed var(--red);
-    background:
-      repeating-linear-gradient(45deg,
-        rgba(224,48,30,0.04) 0,
-        rgba(224,48,30,0.04) 6px,
-        transparent 6px,
-        transparent 12px);
-  }
-  .loops .tag {
-    font-size: 9px;
-    letter-spacing: 0.34em;
-    text-transform: uppercase;
-    color: var(--red);
-    font-weight: 700;
-  }
-  .loops .num {
-    font-size: 56px;
-    font-weight: 800;
-    line-height: 1.0;
-    color: var(--ink);
-    margin: 4px 0 2px;
-  }
-  .loops .label {
-    font-size: 13px;
-    letter-spacing: 0.24em;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: var(--ink);
-  }
-  .loops .trace {
-    font-size: 11px;
-    color: var(--red);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    margin: 8px 0;
-  }
-  .loops .trace .arrow { color: var(--ink); margin: 0 4px; }
-  .loops .play {
-    font-size: 10px;
-    color: var(--muted);
-    letter-spacing: 0.04em;
-    margin-top: 2px;
-    font-style: italic;
-  }
-  .loops .proof {
-    font-size: 9px;
-    letter-spacing: 0.28em;
-    text-transform: uppercase;
-    color: var(--ink);
-    margin-top: 8px;
-    border-top: 1px dashed var(--red);
-    padding-top: 6px;
-  }
-  .loops .proof b { color: var(--red); }
-
-  /* --- Agent breakdown rows --- */
-  .agent-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    font-size: 12px;
-    margin: 1px 0;
-  }
-  .agent-row .nm { font-weight: 700; }
-  .agent-row .ct { color: var(--muted); }
-  .agent-row .n { font-weight: 700; }
-
-  /* --- Timeline ASCII bar chart --- */
-  .bars { margin: 8px 0 4px; }
-  .bar-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 10px;
-    margin: 1px 0;
-    white-space: nowrap;
-  }
-  .bar-row .wk {
-    width: 58px;
-    color: var(--muted);
-    flex: 0 0 auto;
-  }
-  .bar-row .blk {
-    flex: 1 1 auto;
-    color: var(--ink);
-    overflow: hidden;
-    text-overflow: clip;
-    letter-spacing: 0;
-    min-width: 0;
-  }
-  .bar-row .ct {
-    width: 34px;
-    text-align: right;
-    color: var(--ink);
-    font-weight: 700;
-    flex: 0 0 auto;
-  }
-
-  /* --- Highlights --- */
-  .hl {
-    font-size: 12px;
-    margin: 4px 0;
-  }
-  .hl .t { font-weight: 700; }
-  .hl .v { color: var(--red); font-weight: 700; }
-  .hl .d { font-size: 10px; color: var(--muted); display: block; margin-top: 1px; }
-
-  /* --- Footer --- */
-  .foot { text-align: center; margin-top: 18px; }
-  .foot .thanks {
-    font-size: 15px;
-    font-weight: 800;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    margin: 6px 0 8px;
-  }
-  .barcode {
-    font-family: var(--mono);
-    font-size: 26px;
-    letter-spacing: 0;
-    color: var(--ink);
-    line-height: 1;
-    margin: 6px 0 4px;
-    /* barcode is rendered with chars below */
-    user-select: none;
-  }
-  .barcode-code {
-    font-size: 9px;
-    letter-spacing: 0.4em;
-    color: var(--ink);
-    margin-top: 2px;
-  }
-  .foot .keep {
-    font-size: 11px;
-    color: var(--red);
-    font-weight: 700;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    margin: 8px 0 4px;
-  }
-  .foot .priv {
-    font-size: 9px;
-    color: var(--muted);
-    letter-spacing: 0.04em;
-    margin: 6px auto 0;
-    max-width: 320px;
-  }
-
-  /* --- Controls --- */
-  .controls {
-    max-width: 420px;
-    width: min(420px, calc(100% - 24px));
-    margin: 14px auto 0;
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .btn {
-    font: 700 11px/1 var(--mono);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    padding: 9px 14px;
-    border: 1px solid var(--ink);
-    background: var(--paper);
-    color: var(--ink);
-    cursor: pointer;
-    transition: background 120ms ease, color 120ms ease;
-    min-height: 36px;
-  }
-  .btn:hover { background: var(--ink); color: var(--paper); }
-  .btn:disabled { opacity: 0.4; cursor: default; }
-
-  .meta {
-    text-align: center;
-    font-size: 9px;
-    color: var(--muted);
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    margin-top: 14px;
-  }
-
-  .err {
-    color: var(--red);
-    font-size: 11px;
-    text-align: center;
-    margin: 14px 0;
-    letter-spacing: 0.04em;
-  }
-
-  .visually-hidden {
-    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-    overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); border: 0;
-  }
-
-  /* On very small viewports let the receipt breathe */
-  @media (max-width: 360px) {
-    body { padding: 16px 6px 40px; }
-    .receipt { padding: 24px 18px 28px; font-size: 12px; }
-    .store .logo { font-size: 26px; }
-    .loops .num { font-size: 48px; }
-    .bar-row .wk { width: 50px; }
-  }
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f5f5f4;color:#1c1917;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;line-height:1.5;padding:24px}
+.page{max-width:960px;margin:0 auto}
+h1{font-size:1.5rem;font-weight:700;margin-bottom:4px}
+.sub{color:#78716c;font-size:.85rem;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:20px}
+.card{background:#fff;border:1px solid #e7e5e4;border-radius:8px;padding:14px}
+.card-val{font-size:1.8rem;font-weight:700;line-height:1;margin-bottom:4px}
+.card-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:#78716c}
+.section{margin-bottom:20px}
+.section-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e7e5e4}
+.section-h h2{font-size:.9rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#292524}
+.section-h span{font-size:.7rem;color:#a8a29e}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{text-align:left;padding:8px 6px;font-weight:600;color:#78716c;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e7e5e4}
+td{padding:6px;border-bottom:1px solid #f0efed;white-space:nowrap}
+td:first-child{padding-left:0}td:last-child{padding-right:0}
+tr.clickable{cursor:pointer}tr.clickable:hover{background:#f0efed}
+tr.clickable.active{background:#e7e5e4}
+.detail-row{display:none}
+.detail-row.open{display:table-row}
+.detail-cell{padding:12px 16px;background:#fafaf9;border:1px solid #e7e5e4;border-radius:6px;margin:4px 0}
+.loop-box{border:1px solid #d6d3d1;border-radius:8px;padding:16px;background:#fff;margin:8px 0;display:flex;gap:20px;flex-wrap:wrap}
+.loop-box .big{font-size:2.2rem;font-weight:700;line-height:1}
+.loop-box .unit{font-size:.8rem;color:#78716c;margin-top:2px}
+.loop-box .badge{display:inline-block;padding:2px 8px;border:1px solid #292524;font-size:.65rem;font-weight:600;text-transform:uppercase;margin-top:6px}
+.loop-box .trace{font-size:.78rem;line-height:1.8}
+.loop-box .trace span{display:inline-block;min-width:70px}
+.trace-fail{color:#dc2626;font-weight:600}
+.trace-pass{color:#16a34a;font-weight:600}
+.trace-work{color:#ca8a04;font-weight:600}
+.bar-wrap{display:flex;align-items:center;gap:6px;margin:2px 0;font-size:.75rem}
+.bar{height:12px;border-radius:3px;transition:width .3s;flex-shrink:0}
+.bar-label{width:80px;text-align:right;color:#78716c;flex-shrink:0;overflow:hidden;text-overflow:ellipsis}
+.bar-count{width:40px;text-align:right;color:#292524;flex-shrink:0}
+.bar1{background:#2563eb}.bar2{background:#7c3aed}.bar3{background:#059669}.bar4{background:#d97706}.bar5{background:#dc2626}
+.detail-inner{font-size:.78rem;line-height:1.6;color:#57534e}
+.detail-inner strong{color:#292524}
+@media(max-width:600px){body{padding:12px}.grid{grid-template-columns:repeat(2,1fr)}.loop-box{flex-direction:column}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.loading-note{color:#78716c;font-size:.82rem;margin:6px 0 16px}
+.skeleton .card{animation:pulse 1.2s ease-in-out infinite}
+.skeleton .card-val{background:#e7e5e4;border-radius:4px;width:60%;height:1.8rem}
+.skeleton .card-label{background:#ececea;border-radius:3px;width:80%;height:.7rem;margin-top:8px}
+.error-box{text-align:center;padding:48px 20px;color:#78716c}
+.error-box .mark{font-size:1.6rem;margin-bottom:10px}
+.error-box code{background:#e7e5e4;padding:2px 6px;border-radius:3px}
 </style>
 </head>
 <body>
-  <main>
-    <article class="receipt" id="receipt" aria-label="wrapminal agent activity receipt">
-      <!-- STORE HEADER -->
-      <header class="store">
-        <div class="logo">WRAPMINAL</div>
-        <div class="sub">Agent Activity Receipt</div>
-        <div class="branch">Local-First · Terminal-Sourced</div>
-        <div class="dt" id="hdr-date">— —</div>
-      </header>
-
-      <hr class="sep">
-
-      <!-- SOURCES / SCANNED -->
-      <section aria-label="sources scanned">
-        <div class="caption">Sources Scanned</div>
-        <div id="sources-list"></div>
-        <div class="item" style="margin-top:4px">
-          <span class="lbl">Records Total</span>
-          <span class="dots" aria-hidden="true"></span>
-          <span class="val" id="src-records">—</span>
-        </div>
-      </section>
-
-      <hr class="sep">
-
-      <!-- TOTALS -->
-      <section aria-label="totals">
-        <div class="caption">Activity Totals</div>
-        <div id="totals"></div>
-      </section>
-
-      <hr class="sep red">
-
-      <!-- RESOLVED LOOPS — HERO -->
-      <section aria-label="resolved loops">
-        <div class="loops" id="loops-box">
-          <div class="tag">★ Special Item</div>
-          <div class="num" id="loops-count">—</div>
-          <div class="label">Loops Escaped</div>
-          <div class="trace" id="loops-trace">stuck <span class="arrow">→</span> work <span class="arrow">→</span> proof</div>
-          <div class="play" id="loops-play">— —</div>
-          <div class="proof" id="loops-proof"><b>★ Evidence:</b> <span id="loops-evidence">—</span></div>
-        </div>
-      </section>
-
-      <hr class="sep">
-
-      <!-- AGENT BREAKDOWN -->
-      <section aria-label="agent breakdown">
-        <div class="caption">By Agent</div>
-        <div id="agents"></div>
-      </section>
-
-      <hr class="sep">
-
-      <!-- HIGHLIGHTS -->
-      <section aria-label="highlights">
-        <div class="caption">Highlights</div>
-        <div id="highlights"></div>
-      </section>
-
-      <hr class="sep">
-
-      <!-- TIMELINE ASCII BAR CHART -->
-      <section aria-label="weekly timeline">
-        <div class="caption">Weekly Activity</div>
-        <div class="bars" id="bars"></div>
-      </section>
-
-      <hr class="sep">
-
-      <!-- FOOTER -->
-      <footer class="foot">
-        <div class="thanks">Thank You For Coding</div>
-        <div class="barcode" id="barcode" aria-hidden="true"></div>
-        <div class="barcode-code" id="barcode-code">0000 0000</div>
-        <div class="keep">Keep Building</div>
-        <div class="priv">
-          100% local. Your terminal history never left this machine.
-          Nothing was uploaded, scored, or shipped to a server.
-        </div>
-        <div class="meta" id="footer-meta">wrapminal · v? — —</div>
-      </footer>
-    </article>
-
-    <div class="controls">
-      <button class="btn" id="btn-svg" type="button">Export SVG</button>
-      <button class="btn" id="btn-print" type="button">Print</button>
-    </div>
-    <p class="err" id="err" hidden></p>
-  </main>
-
-  <template id="barcode-chars">||||  || ||||  |||| ||  |||  ||||| ||  |||||| |||| | || || | |||||| || | ||||| |</template>
-
+<div class="page">
+  <h1>wrapminal</h1>
+  <div class="sub" id="subtitle"></div>
+  <div id="app"></div>
+</div>
 <script>
-"use strict";
-
-const API = "/api/wrapped";
-
-const fmt = (n) => {
-  if (n == null || Number.isNaN(n)) return "—";
-  return Number(n).toLocaleString("en-US");
-};
-
-const fmtDate = (iso) => {
-  if (!iso) return "—";
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString("en-US", {
-      year: "numeric", month: "short", day: "2-digit",
-      hour: "2-digit", minute: "2-digit",
-      hour12: false
-    }).toUpperCase();
-  } catch { return iso; }
-};
-
-// Dotted leader helper: build a flex row with label + value
-function lineItem(label, value, { accent = false, sub = null } = {}) {
-  const row = document.createElement("div");
-  row.className = "item";
-  const lbl = document.createElement("span");
-  lbl.className = "lbl";
-  lbl.textContent = label;
-  const dots = document.createElement("span");
-  dots.className = "dots";
-  dots.setAttribute("aria-hidden", "true");
-  const val = document.createElement("span");
-  val.className = "val" + (accent ? " accent" : "");
-  val.textContent = value;
-  row.append(lbl, dots, val);
-  if (sub) {
-    const s = document.createElement("div");
-    s.className = "sub";
-    s.textContent = sub;
-    return [row, s];
-  }
-  return [row];
-}
-
-function captionInto(parent, text) {
-  const c = document.createElement("div");
-  c.className = "caption";
-  c.textContent = text;
-  parent.appendChild(c);
-}
-
-function renderSources(data) {
-  const wrap = document.getElementById("sources-list");
-  wrap.replaceChildren();
-  // Only sources we actually parsed records from — hide detected-but-empty (0 rec) rows.
-  const srcs = (data.sources || []).filter(s => (s.records || 0) > 0);
-  srcs.forEach(s => {
-    const row = document.createElement("div");
-    row.className = "agent-row";
-    const nm = document.createElement("span"); nm.className = "nm";
-    nm.textContent = s.name || s.id;
-    const ct = document.createElement("span"); ct.className = "ct";
-    ct.textContent = `· ${s.state || "—"} · ${fmt(s.records)} rec`;
-    const n  = document.createElement("span"); n.className = "n";
-    n.textContent = "";
-    row.append(nm, ct, n);
-    // simpler: label left, count right
-    row.replaceChildren(nm, ct);
-    wrap.appendChild(row);
-  });
-  const tot = srcs.reduce((a, s) => a + (s.records || 0), 0);
-  document.getElementById("src-records").textContent = fmt(tot);
-}
-
-function renderTotals(t) {
-  const wrap = document.getElementById("totals");
-  wrap.replaceChildren();
-  const rows = [
-    ["Prompts",          fmt(t?.prompts)],
-    ["Sessions",         fmt(t?.sessions)],
-    ["Projects",         fmt(t?.projects)],
-    ["Sources",          fmt(t?.sources)],
-    ["Active Days",      fmt(t?.active_days)],
-  ];
-  rows.forEach(([l, v, opt]) => {
-    const [el] = lineItem(l, v, opt || {});
-    wrap.appendChild(el);
-  });
-}
-
-function renderLoops(loops) {
-  document.getElementById("loops-count").textContent = fmt(loops?.count);
-  const play = document.getElementById("loops-play");
-  const ex = loops?.example || {};
-  if (ex.source || ex.attempts) {
-    play.textContent =
-      `e.g. ${ex.source || "agent"} tried ${fmt(ex.attempts || 0)}× — then it passed.`;
-  } else {
-    play.textContent = "e.g. a stuck verify finally went green.";
-  }
-  document.getElementById("loops-evidence").textContent =
-    loops?.evidence
-      ? `${loops.evidence} · ${fmt(loops.sessions_scanned || 0)} sessions scanned`
-      : `—`;
-  // trace stays static; could be dynamic if data had phases
-}
-
-function renderAgents(sources) {
-  const wrap = document.getElementById("agents");
-  wrap.replaceChildren();
-  (sources || []).filter(s => (s.prompts||0) > 0).sort((a, b) => (b.prompts||0) - (a.prompts||0)).forEach(s => {
-    const row = document.createElement("div");
-    row.className = "agent-row";
-    const nm = document.createElement("span"); nm.className = "nm";
-    nm.textContent = s.name || s.id;
-    const ct = document.createElement("span"); ct.className = "ct";
-    ct.textContent = `${fmt(s.sessions||0)} sess`;
-    row.append(nm, ct);
-    // align counts to right
-    const n = document.createElement("span"); n.className = "n";
-    n.textContent = fmt(s.prompts || 0);
-    row.append(n);
-    wrap.appendChild(row);
-  });
-  if (!sources || sources.length === 0) {
-    const e = document.createElement("div"); e.className = "sub";
-    e.textContent = "no agents detected";
-    wrap.appendChild(e);
-  }
-}
-
-function renderHighlights(hls) {
-  const wrap = document.getElementById("highlights");
-  wrap.replaceChildren();
-  (hls || []).forEach(h => {
-    const div = document.createElement("div");
-    div.className = "hl";
-    const t = document.createElement("span"); t.className = "t";
-    t.textContent = h.title + "  ";
-    const v = document.createElement("span"); v.className = "v";
-    v.textContent = h.value;
-    div.append(t, v);
-    if (h.detail) {
-      const d = document.createElement("span"); d.className = "d";
-      d.textContent = h.detail;
-      div.appendChild(d);
-    }
-    wrap.appendChild(div);
-  });
-  if (!hls || hls.length === 0) {
-    const e = document.createElement("div"); e.className = "sub";
-    e.textContent = "no highlights this period";
-    wrap.appendChild(e);
-  }
-}
-
-// ASCII bar chart with block characters
-function barBlock(frac) {
-  // full block then partials
-  const FULL = 12; // cells
-  const total = Math.max(0, Math.round(FULL * frac));
-  const fullChars = "█".repeat(Math.floor(total / 1));
-  // we just use full blocks; partial shading via last char for finer look
-  return fullChars || "·";
-}
-
-function renderTimeline(tl) {
-  const wrap = document.getElementById("bars");
-  wrap.replaceChildren();
-  const weeks = (tl?.weeks || []).slice(-12);
-  if (weeks.length === 0) {
-    const e = document.createElement("div"); e.className = "sub";
-    e.textContent = "no weekly data";
-    wrap.appendChild(e);
+async function main(){
+  const app=document.getElementById('app');
+  document.getElementById('subtitle').textContent='scanning local agent history…';
+  app.innerHTML='<div class="loading-note">scanning your local agent history — this can take a few seconds on large histories…</div><div class="grid skeleton">'+'<div class="card"><div class="card-val"></div><div class="card-label"></div></div>'.repeat(6)+'</div>';
+  let d;
+  try{
+    const r=await fetch('/api/wrapped');
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    d=await r.json();
+  }catch(err){
+    document.getElementById('subtitle').textContent='local only';
+    app.innerHTML='<div class="error-box"><div class="mark">⚠</div><p>Could not reach the wrapminal server.</p><p style="font-size:.8rem;margin-top:8px">Make sure it\'s running, then reload. Raw data: <code>curl -s http://localhost:8080/api/wrapped</code></p></div>';
     return;
   }
-  const max = Math.max(1, ...weeks.map(w => w.prompts || 0));
-  weeks.forEach(w => {
-    const row = document.createElement("div");
-    row.className = "bar-row";
-    const wk = document.createElement("span"); wk.className = "wk";
-    wk.textContent = (w.week || "").replace(/^2026-/, "'") ; // compact
-    const blk = document.createElement("span"); blk.className = "blk";
-    const frac = (w.prompts || 0) / max;
-    blk.textContent = barBlock(frac);
-    const ct = document.createElement("span"); ct.className = "ct";
-    ct.textContent = fmt(w.prompts || 0);
-    row.append(wk, blk, ct);
-    wrap.appendChild(row);
+  window.d=d;
+  document.getElementById('subtitle').textContent=new Date(d.generated_at).toLocaleString()+' · local only';
+  const html=[];
+  // totals
+  const t=d.totals;
+  html.push(`<div class="grid">${[['prompts',t.prompts],['sessions',t.sessions],['projects',t.projects],['active days',t.active_days],['sources',t.sources],['est. tokens',t.estimated_tokens]].map(([k,v])=>`<div class="card"><div class="card-val">${fmt(v)}</div><div class="card-label">${k}</div></div>`).join('')}</div>`);
+  // resolved loops
+  const l=d.resolved_loops||{};const c=l.count||0;const p=l.evidence==='proven'&&c>0;
+  html.push(`<div class="section"><div class="section-h"><h2>resolved loops</h2><span>${p?'proven':'none detected'}</span></div>`);
+  if(p){
+    const ex=l.example||{};const at=Math.max(Number(ex.attempts||0),2);
+    const lb=c===1?'THE BUG BLINKED FIRST':c<5?'COMEBACK MERCHANT':'ABSOLUTELY REFUSED TO QUIT';
+    html.push(`<div class="loop-box"><div><div class="big">${fmt(c)}</div><div class="unit">loop${c!==1?'s':''} escaped</div><div class="badge">${esc(lb)}</div></div><div class="trace"><div>01<span style="color:#78716c"> stuck</span>  <span class="trace-fail">FAILED</span></div><div>02<span style="color:#78716c"> work</span>  ${fmt(at)} attempts  <span class="trace-work">KEPT GOING</span></div><div>03<span style="color:#78716c"> proof</span>  later check passed  <span class="trace-pass">PASSED</span></div><div style="color:#a8a29e;font-size:.7rem;margin-top:6px">via ${esc(ex.source||'history')} · ${fmt(l.sessions_scanned)} sessions scanned</div></div></div>`);
+  }else{
+    html.push(`<div style="padding:10px 0;color:#78716c;font-size:.82rem">${fmt(l.sessions_scanned||0)} sessions scanned, no fail→pass verification pair found.</div>`);
+  }
+  html.push('</div>');
+  // agent breakdown
+  const agents=d.source_breakdown||[];const amax=Math.max(...agents.map(a=>a.prompts),1);
+  html.push(`<div class="section"><div class="section-h"><h2>agents</h2><span>${agents.length} with data</span></div>`);
+  agents.forEach((a,i)=>{const pct=a.prompts/amax*100;html.push(`<div class="bar-wrap"><span class="bar-label">${esc(a.name)}</span><span class="bar bar${(i%5)+1}" style="width:${pct*2}px"></span><span class="bar-count">${fmt(a.prompts)}</span><span style="color:#a8a29e;font-size:.68rem">${fmt(a.sessions)}sessions</span></div>`);});
+  html.push('</div>');
+  // all sources: only ones with real data; collapse the empty/probed rest into one line
+  const srcLoaded=d.sources.filter(s=>s.state==='loaded'&&(s.records||0)>0);
+  const srcEmpty=d.sources.filter(s=>!(s.state==='loaded'&&(s.records||0)>0));
+  html.push(`<div class="section"><div class="section-h"><h2>all sources</h2><span>${srcLoaded.length} active</span></div><table><thead><tr><th>source</th><th>state</th><th>records</th><th>path</th></tr></thead><tbody>`);
+  srcLoaded.forEach(s=>{html.push(`<tr><td>${esc(s.name)}</td><td>${esc(s.state)}</td><td>${s.records||0}</td><td style="font-size:.68rem;color:#a8a29e">${esc((s.path||'').replace(/^\/home\/([^/]+)/,'~'))}</td></tr>`);});
+  html.push('</tbody></table>');
+  if(srcEmpty.length)html.push(`<div style="font-size:.72rem;color:#a8a29e;padding:8px 0">+ ${srcEmpty.length} other tools checked, nothing found</div>`);
+  html.push('</div>');
+  // highlights
+  html.push(`<div class="section"><div class="section-h"><h2>highlights</h2></div><table><thead><tr><th>metric</th><th>value</th><th>detail</th></tr></thead><tbody>`);
+  (d.highlights||[]).forEach(h=>{html.push(`<tr><td style="font-weight:600">${esc(h.title)}</td><td>${esc(h.value)}</td><td style="color:#78716c;font-size:.75rem">${esc(h.detail||'')}</td></tr>`);});
+  html.push('</tbody></table></div>');
+  // top projects
+  const projects=(d.projects||[]).slice(0,15);
+  html.push(`<div class="section"><div class="section-h"><h2>top projects</h2><span>${d.projects.length} total · top 15</span></div><table><thead><tr><th>project</th><th>agent</th><th>prompts</th><th>active days</th><th>tokens</th></tr></thead><tbody>`);
+  projects.forEach(p=>{
+    html.push(`<tr class="clickable" onclick="toggleDetail(this)" data-id="${esc(p.name)}-${esc(p.source_id)}"><td style="font-weight:600">${esc(p.name)}</td><td style="color:#78716c;font-size:.75rem">${esc(p.source||'')}</td><td>${fmt(p.prompts)}</td><td>${fmt(p.active_days||0)}</td><td>${fmt(p.tokens||0)}</td></tr>`);
+    html.push(`<tr class="detail-row" id="d-${esc(p.name)}-${esc(p.source_id)}"><td colspan="5"><div class="detail-inner"><strong>First:</strong> ${esc(p.first_date||'?')} · <strong>Last:</strong> ${esc(p.last_date||'?')} · <strong>Confidence:</strong> ${esc(p.confidence||'?')} · <strong>Intensity:</strong> ${p.intensity ? Number(p.intensity).toFixed(2) : '?'} prompts/day</div></td></tr>`);
   });
-}
-
-function renderBarcode() {
-  // Random but stable-per-load barcode of | and spaces
-  const tmpl = document.getElementById("barcode-chars");
-  const chars = (tmpl.content.textContent || "").replace(/\s+/g, "");
-  const el = document.getElementById("barcode");
-  el.textContent = chars;
-  // synthesize a code from char density
-  const code = chars.replace(/[^|]/g, "").length.toString().padStart(4, "0")
-             + " " + chars.length.toString().padStart(4, "0");
-  document.getElementById("barcode-code").textContent = code;
-}
-
-function renderHeader(data) {
-  document.getElementById("hdr-date").textContent = fmtDate(data?.generated_at);
-  const meta = document.getElementById("footer-meta");
-  meta.textContent =
-    `wrapminal · ${(data?.sources || []).length} sources · ${fmtDate(data?.generated_at)}`;
-}
-
-function showError(msg) {
-  const e = document.getElementById("err");
-  e.hidden = false;
-  e.textContent = "⚠ " + msg;
-}
-
-async function loadData() {
-  try {
-    const r = await fetch(API, { cache: "no-store" });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data = await r.json();
-    renderHeader(data);
-    renderSources(data);
-    renderTotals(data.totals || {});
-    renderLoops(data.resolved_loops || {});
-    renderAgents(data.source_breakdown || data.sources || []);
-    renderHighlights(data.highlights || []);
-    renderTimeline(data.timeline || {});
-    renderBarcode();
-  } catch (err) {
-    showError("Could not load /api/wrapped — " + (err?.message || err));
-    // still render a barcode so the receipt looks complete
-    renderBarcode();
-    document.getElementById("hdr-date").textContent = fmtDate(new Date().toISOString());
-  }
-}
-
-/* ---------- SVG EXPORT ---------- */
-// Generate a receipt-style SVG of the current data and download it.
-function downloadSVG(svg) {
-  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "wrapminal-receipt-" +
-    new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19) + ".svg";
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-    a.remove();
-  }, 1500);
-}
-
-// Monospace text width estimate at given size (JetBrains Mono ~0.6em advance)
-const M_ADV = 0.6; // em → width factor
-function monoWidth(text, sizePx) {
-  return text.length * sizePx * M_ADV;
-}
-
-// Wrap a string to a max pixel width with monospaced metrics
-function wrapMono(text, sizePx, maxPx) {
-  const words = text.split(/\s+/);
-  const lines = [];
-  let cur = "";
-  for (const w of words) {
-    const test = cur ? cur + " " + w : w;
-    if (monoWidth(test, sizePx) <= maxPx) cur = test;
-    else { if (cur) lines.push(cur); cur = w; }
-  }
-  if (cur) lines.push(cur);
-  return lines;
-}
-
-function exportSVG() {
-  const RECV_W = 420;
-  const PAD = 28;
-  const COL_W = RECV_W - PAD * 2;
-  const LINE_H = 20;
-  const FONT = "JetBrains Mono, ui-monospace, monospace";
-  const INK = "#1A1A1A";
-  const RED = "#E0301E";
-  const MUT = "#999999";
-  const PAPER = "#FAFAF5";
-
-  const y = { v: 0 };
-  const out = [];
-  const W = COL_W;
-
-  function push(x, text, size, weight, fill, anchor = "start") {
-    out.push(`<text x="${x}" y="${y.v}" font-family="${FONT}" font-size="${size}" font-weight="${weight || 400}" fill="${fill || INK}" text-anchor="${anchor}">${escapeXML(text)}</text>`);
-    y.v += Math.round(size * 1.55);
-  }
-  function sep(color = INK, dash = "4 3") {
-    out.push(`<line x1="${PAD}" y1="${y.v}" x2="${RECV_W - PAD}" y2="${y.v}" stroke="${color}" stroke-width="1" stroke-dasharray="${dash}"/>`);
-    y.v += 10;
-  }
-  function caption(t) {
-    push(PAD + W / 2, t.toUpperCase(), 9, 700, MUT, "middle");
-    y.v += 2;
-  }
-  function itemRow(label, value, accent = false) {
-    const labX = PAD;
-    const valX = RECV_W - PAD;
-    push(labX, label, 12, 400, INK);
-    // dotted leader
-    const labW = monoWidth(label, 12);
-    const valW = monoWidth(value, 12);
-    const dotStart = labX + labW + 6;
-    const dotEnd = valX - valW - 6;
-    const dotN = Math.max(0, Math.floor((dotEnd - dotStart) / 4));
-    if (dotN > 0) {
-      let dots = "";
-      for (let i = 0; i < dotN; i++) dots += ". ";
-      out.push(`<text x="${dotStart}" y="${y.v - Math.round(12*1.55)}" font-family="${FONT}" font-size="12" fill="${MUT}">${escapeXML(dots.trimEnd())}</text>`);
-    }
-    push(valX, value, 12, 700, accent ? RED : INK, "end");
-  }
-  function agentRow(name, sub, count) {
-    push(PAD, name, 11, 700, INK);
-    const subX = PAD + monoWidth(name, 11) + 6;
-    out.push(`<text x="${subX}" y="${y.v - Math.round(11*1.55)}" font-family="${FONT}" font-size="10" fill="${MUT}">${escapeXML(sub)}</text>`);
-    push(RECV_W - PAD, count, 11, 700, INK, "end");
-  }
-  function hlRow(title, value, detail) {
-    push(PAD, title, 11, 700, INK);
-    const tW = monoWidth(title + "  ", 11);
-    push(PAD + tW, value, 11, 700, RED);
-    if (detail) {
-      push(PAD, detail, 9, 400, MUT);
-    }
-  }
-  function barRow(label, blocks, count) {
-    push(PAD, label, 9, 400, MUT);
-    const labW = monoWidth(label, 9) + 6;
-    push(PAD + labW, blocks, 11, 400, INK);
-    push(RECV_W - PAD, count, 9, 700, INK, "end");
-  }
-
-  // Compose
-  push(PAD + W / 2, "WRAPMINAL", 22, 800, INK, "middle");
-  push(PAD + W / 2, "AGENT ACTIVITY RECEIPT", 8, 700, RED, "middle");
-  const dt = document.getElementById("hdr-date").textContent;
-  push(PAD + W / 2, dt, 9, 400, INK, "middle");
-  sep();
-
-  // Sources
-  caption("Sources Scanned");
-  const srcs = ((window.__data && window.__data.sources) || []).filter(s => (s.records||0) > 0);
-  srcs.forEach(s => agentRow(s.name || s.id, `· ${s.state||"—"} · ${fmt(s.records)} rec`, ""));
-  itemRow("Records Total", document.getElementById("src-records").textContent);
-  sep();
-
-  // Totals
-  caption("Activity Totals");
-  const t = (window.__data && window.__data.totals) || {};
-  itemRow("Prompts", fmt(t.prompts));
-  itemRow("Sessions", fmt(t.sessions));
-  itemRow("Projects", fmt(t.projects));
-  itemRow("Sources", fmt(t.sources));
-  itemRow("Active Days", fmt(t.active_days));
-  sep(RED, "4 3");
-
-  // Loops hero box
-  const lp = (window.__data && window.__data.resolved_loops) || {};
-  const boxX = PAD, boxW = W;
-  const boxY0 = y.v;
-  const INNER_PAD = 10;
-  y.v += 30;
-  push(PAD + W / 2, "★ SPECIAL ITEM", 8, 700, RED, "middle");
-  push(PAD + W / 2, fmt(lp.count || 0), 40, 800, INK, "middle");
-  push(PAD + W / 2, "LOOPS ESCAPED", 11, 700, INK, "middle");
-  push(PAD + W / 2, "stuck → work → proof", 10, 700, RED, "middle");
-  const play = document.getElementById("loops-play").textContent;
-  play.split("\n").forEach(line => {
-    wrapMono(line, 9, W - INNER_PAD*2).forEach(wl =>
-      push(PAD + W / 2, wl, 9, 400, MUT, "middle"));
+  html.push('</tbody></table></div>');
+  // timeline
+  const weeks=(d.timeline&&d.timeline.weeks)||[];const wmax=Math.max(...weeks.map(w=>w.prompts),1);
+  const months=(d.timeline&&d.timeline.months)||[];
+  html.push(`<div class="section"><div class="section-h"><h2>timeline</h2><span>${weeks.length} weeks · ${months.length} months</span></div><table><thead><tr><th>month</th><th style="width:60%">activity</th><th>prompts</th></tr></thead><tbody>`);
+  months.forEach(m=>{
+    const pct=m.prompts/wmax*100;const barW=Math.min(pct,100);
+    html.push(`<tr><td style="font-weight:600">${esc(m.month)}</td><td><span class="bar bar1" style="display:inline-block;width:${barW*2}px;height:10px"></span></td><td>${fmt(m.prompts)}</td></tr>`);
   });
-  y.v += 4;
-  const proof = document.getElementById("loops-evidence").textContent;
-  push(PAD + W / 2, `★ EVIDENCE: ${proof}`, 8, 700, INK, "middle");
-  const boxH = y.v - boxY0 + 12;
-  out.push(`<rect x="${boxX}" y="${boxY0}" width="${boxW}" height="${boxH}" fill="none" stroke="${RED}" stroke-width="2" stroke-dasharray="6 4"/>`);
-  // hatch overlay
-  out.push(`<rect x="${boxX}" y="${boxY0}" width="${boxW}" height="${boxH}" fill="url(#hatch)" opacity="0.5"/>`);
-  y.v += 6;
-  sep();
-
-  // Agents
-  caption("By Agent");
-  const agents = (window.__data && (window.__data.source_breakdown || window.__data.sources)) || [];
-  agents.filter(s => (s.prompts||0) > 0).sort((a,b)=>(b.prompts||0)-(a.prompts||0)).forEach(s =>
-    agentRow(s.name || s.id, `${fmt(s.sessions||0)} sess`, fmt(s.prompts||0)));
-  sep();
-
-  // Highlights
-  caption("Highlights");
-  (window.__data && window.__data.highlights || []).forEach(h =>
-    hlRow(h.title, h.value, h.detail));
-  sep();
-
-  // Timeline bars
-  caption("Weekly Activity");
-  const weeks = (window.__data && window.__data.timeline && window.__data.timeline.weeks) || [];
-  weeks.slice(-12).forEach(w => {
-    const max = Math.max(1, ...weeks.map(x => x.prompts||0));
-    const frac = (w.prompts||0) / max;
-    const n = Math.round(12 * frac);
-    const blocks = "█".repeat(n) || "·";
-    barRow((w.week||"").replace(/^2026-/,"'"), blocks, fmt(w.prompts||0));
-  });
-  sep();
-
-  // Footer
-  push(PAD + W / 2, "THANK YOU FOR CODING", 14, 800, INK, "middle");
-  // barcode as series of rects from the rendered chars
-  const bc = document.getElementById("barcode").textContent;
-  let bx = PAD;
-  for (const ch of bc) {
-    if (ch === "|") {
-      out.push(`<rect x="${bx}" y="${y.v - 14}" width="1.5" height="20" fill="${INK}"/>`);
-      bx += 3;
-    } else { bx += 2; }
-  }
-  y.v += 26;
-  push(PAD + W / 2, document.getElementById("barcode-code").textContent, 8, 700, INK, "middle");
-  push(PAD + W / 2, "KEEP BUILDING", 11, 700, RED, "middle");
-  const priv = "100% local. Your terminal history never left this machine. Nothing was uploaded.";
-  wrapMono(priv, 8, W - 20).forEach(wl =>
-    push(PAD + W / 2, wl, 8, 400, MUT, "middle"));
-  push(PAD + W / 2, document.getElementById("footer-meta").textContent, 8, 400, MUT, "middle");
-
-  const H = Math.max(240, y.v + 24);
-  const svg =
-`<svg xmlns="http://www.w3.org/2000/svg" width="${RECV_W}" height="${H}" viewBox="0 0 ${RECV_W} ${H}" role="img" aria-label="wrapminal agent activity receipt">
-  <defs>
-    <pattern id="hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
-      <line x1="0" y1="0" x2="0" y2="6" stroke="${RED}" stroke-width="1" stroke-opacity="0.08"/>
-    </pattern>
-  </defs>
-  <rect x="0" y="0" width="${RECV_W}" height="${H}" fill="${PAPER}"/>
-  ${out.join("\n  ")}
-  <rect x="0" y="0" width="${RECV_W}" height="${H}" fill="none" stroke="${INK}" stroke-opacity="0.12" stroke-width="1"/>
-</svg>`;
-  downloadSVG(svg);
+  html.push('</tbody></table></div>');
+  // raw data link
+  html.push('<div style="margin:24px 0;padding:12px;background:#fafaf9;border:1px solid #e7e5e4;border-radius:6px;font-size:.78rem">');
+  html.push('<span style="font-weight:600">Raw data:</span> <code style="background:#e7e5e4;padding:2px 6px;border-radius:3px">curl -s http://localhost:8080/api/wrapped | jq .</code>');
+  html.push('</div>');
+  document.getElementById('app').innerHTML=html.join('');
 }
-
-function escapeXML(s) {
-  return String(s).replace(/[<>&'"]/g, c => ({
-    "<":"&lt;", ">":"&gt;", "&":"&amp;", "'":"&apos;", '"':"&quot;"
-  }[c]));
+function toggleDetail(el){
+  const id=el.getAttribute('data-id');
+  const row=document.getElementById(`d-${id}`);
+  if(row){row.classList.toggle('open');el.classList.toggle('active')}
 }
-
-function wireButtons() {
-  const svgBtn = document.getElementById("btn-svg");
-  const prBtn = document.getElementById("btn-print");
-  svgBtn.addEventListener("click", () => {
-    if (!window.__data) {
-      showError("no data loaded yet — retry in a moment");
-      return;
-    }
-    try { exportSVG(); }
-    catch (e) { showError("SVG export failed — " + (e?.message || e)); }
-  });
-  prBtn.addEventListener("click", () => window.print());
-}
-
-// Cache data for SVG export
-const _origLoad = loadData;
-async function boot() {
-  wireButtons();
-  try {
-    const r = await fetch(API, { cache: "no-store" });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data = await r.json();
-    window.__data = data;
-    renderHeader(data);
-    renderSources(data);
-    renderTotals(data.totals || {});
-    renderLoops(data.resolved_loops || {});
-    renderAgents(data.source_breakdown || data.sources || []);
-    renderHighlights(data.highlights || []);
-    renderTimeline(data.timeline || {});
-    renderBarcode();
-  } catch (err) {
-    showError("Could not load /api/wrapped — " + (err?.message || err));
-    renderBarcode();
-    document.getElementById("hdr-date").textContent = fmtDate(new Date().toISOString());
-  }
-}
-
-// Skip the loadData function above (kept for clarity) and use boot().
-document.addEventListener("DOMContentLoaded", boot);
+function fmt(n){return Number(n).toLocaleString()}
+function esc(s){const e=document.createElement('div');e.textContent=s||'';return e.innerHTML}
+main();
 </script>
+</div>
 </body>
 </html>

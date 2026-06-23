@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -52,6 +53,8 @@ type Interaction struct {
 	SessionID string
 	Timestamp time.Time
 	Chars     int
+	Tokens    int     // actual token count when the source records it; 0 if unknown
+	Cost      float64 // actual USD cost when the source records it; 0 if unknown
 }
 
 type SourceStatus struct {
@@ -65,12 +68,14 @@ type SourceStatus struct {
 }
 
 type Totals struct {
-	Prompts         int `json:"prompts"`
-	Sessions        int `json:"sessions"`
-	Projects        int `json:"projects"`
-	Sources         int `json:"sources"`
-	ActiveDays      int `json:"active_days"`
-	EstimatedTokens int `json:"estimated_tokens"`
+	Prompts         int     `json:"prompts"`
+	Sessions        int     `json:"sessions"`
+	Projects        int     `json:"projects"`
+	Sources         int     `json:"sources"`
+	ActiveDays      int     `json:"active_days"`
+	EstimatedTokens int     `json:"estimated_tokens"`
+	RealTokens      int     `json:"real_tokens"`
+	EstimatedCost   float64 `json:"estimated_cost_usd"`
 }
 
 type ProjectStats struct {
@@ -84,15 +89,17 @@ type ProjectStats struct {
 	ActiveDays int     `json:"active_days"`
 	Intensity  float64 `json:"intensity"`
 	Tokens     int     `json:"tokens"`
+	Cost       float64 `json:"cost_usd"`
 	Confidence string  `json:"confidence"`
 }
 
 type SourceBreakdown struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Prompts  int    `json:"prompts"`
-	Sessions int    `json:"sessions"`
-	Tokens   int    `json:"tokens"`
+	ID       string  `json:"id"`
+	Name     string  `json:"name"`
+	Prompts  int     `json:"prompts"`
+	Sessions int     `json:"sessions"`
+	Tokens   int     `json:"tokens"`
+	Cost     float64 `json:"cost_usd"`
 }
 
 type Highlight struct {
@@ -106,7 +113,9 @@ type WeekStats struct {
 	Label       string         `json:"label"`
 	Prompts     int            `json:"prompts"`
 	Tokens      int            `json:"tokens"`
+	RealTokens  int            `json:"real_tokens"`
 	Sessions    int            `json:"sessions"`
+	Cost        float64        `json:"cost_usd"`
 	Projects    map[string]int `json:"-"`
 	TopProjects []ProjectCount `json:"top_projects"`
 }
@@ -117,11 +126,13 @@ type ProjectCount struct {
 }
 
 type MonthStats struct {
-	Month   string `json:"month"`
-	Label   string `json:"label"`
-	Prompts int    `json:"prompts"`
-	Tokens  int    `json:"tokens"`
-	Days    int    `json:"active_days"`
+	Month      string  `json:"month"`
+	Label      string  `json:"label"`
+	Prompts    int     `json:"prompts"`
+	Tokens     int     `json:"tokens"`
+	RealTokens int     `json:"real_tokens"`
+	Cost       float64 `json:"cost_usd"`
+	Days       int     `json:"active_days"`
 }
 
 type Timeline struct {
@@ -146,13 +157,15 @@ type WrappedResponse struct {
 }
 
 type projectCollector struct {
-	name     string
-	source   string
-	sourceID string
-	prompts  int
-	tokens   int
-	first    time.Time
-	last     time.Time
+	name       string
+	source     string
+	sourceID   string
+	prompts    int
+	tokens     int
+	realTokens int
+	cost       float64
+	first      time.Time
+	last       time.Time
 	sessions   map[string]struct{}
 	emptyTimes []time.Time
 	days       map[string]struct{}
@@ -179,7 +192,7 @@ func sourceRegistry() []sourceParser {
 		{"windsurf", "Windsurf / Codeium", probeWindsurf},
 		{"cline", "Cline / Roo", probeCline},
 		{"pi", "pi", parsePi},
-		{"hermes", "hermes", probeHermes},
+		{"hermes", "hermes", parseHermes},
 	}
 }
 
@@ -238,45 +251,146 @@ func parseClaude(home string) ([]Interaction, SourceStatus) {
 		Message:    "No Claude Code history found.",
 	}
 
+	var items []Interaction
+	histSIDs := make(map[string]struct{})
+
 	file, err := os.Open(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, status
-		}
+	if err != nil && !os.IsNotExist(err) {
 		status.State = "error"
 		status.Message = err.Error()
 		return nil, status
 	}
-	defer file.Close()
-
-	var items []Interaction
-	scanner := newJSONLScanner(file)
-	for scanner.Scan() {
-		var entry ClaudeEntry
-		if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil || entry.Timestamp == 0 {
-			continue
+	if err == nil {
+		scanner := newJSONLScanner(file)
+		for scanner.Scan() {
+			var entry ClaudeEntry
+			if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil || entry.Timestamp == 0 {
+				continue
+			}
+			if entry.SessionID != "" {
+				histSIDs[entry.SessionID] = struct{}{}
+			}
+			items = append(items, Interaction{
+				Source:    status.Name,
+				SourceID:  status.ID,
+				Project:   projectName(entry.Project, "Unknown Claude Project"),
+				SessionID: entry.SessionID,
+				Timestamp: unixFlexible(entry.Timestamp),
+				Chars:     entry.EstimateChars(),
+			})
 		}
-
-		items = append(items, Interaction{
-			Source:    status.Name,
-			SourceID:  status.ID,
-			Project:   projectName(entry.Project, "Unknown Claude Project"),
-			SessionID: entry.SessionID,
-			Timestamp: unixFlexible(entry.Timestamp),
-			Chars:     entry.EstimateChars(),
-		})
+		serr := scanner.Err()
+		file.Close()
+		if serr != nil {
+			status.State = "error"
+			status.Message = serr.Error()
+			return items, status
+		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		status.State = "error"
-		status.Message = err.Error()
-		return items, status
-	}
+	// Deep layer: per-session transcripts under ~/.claude/projects carry sessions
+	// (subagent-driven, resumed) that history.jsonl never logs. Add genuine human
+	// prompts from sessions history hasn't already covered, so session and activity
+	// counts reflect the real picture without double-counting overlapping sessions.
+	// ponytail: walks projects/*.jsonl per request like resolved_loops; cache by
+	// mtime if this gets slow on large histories.
+	items = append(items, claudeTranscriptPrompts(home, histSIDs)...)
 
 	status.Records = len(items)
 	status.State = loadedState(items)
-	status.Message = loadedMessage(items, "Claude prompts loaded.")
+	status.Message = loadedMessage(items, "Claude prompts loaded (history + session transcripts).")
 	return items, status
+}
+
+// claudeTranscriptPrompts reads genuine human prompts from per-session transcripts
+// under ~/.claude/projects/**/*.jsonl, skipping sessions already in history.jsonl
+// (the skip set) so prompts aren't double-counted. It counts only top-level user
+// text turns — never tool_result blocks (which Claude also stores as "user"
+// messages) and never isSidechain subagent turns — so totals stay honest while the
+// otherwise-invisible sessions surface in session and activity counts.
+func claudeTranscriptPrompts(home string, skip map[string]struct{}) []Interaction {
+	root := filepath.Join(home, ".claude", "projects")
+	var items []Interaction
+	_ = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() || !strings.HasSuffix(entry.Name(), ".jsonl") || entry.Name() == "skill-injections.jsonl" {
+			return nil
+		}
+		file, err := os.Open(path)
+		if err != nil {
+			return nil
+		}
+		scanner := newJSONLScanner(file)
+		for scanner.Scan() {
+			var line struct {
+				Type        string `json:"type"`
+				SessionID   string `json:"sessionId"`
+				IsSidechain bool   `json:"isSidechain"`
+				Cwd         string `json:"cwd"`
+				Timestamp   string `json:"timestamp"`
+				Message     struct {
+					Content json.RawMessage `json:"content"`
+				} `json:"message"`
+			}
+			if json.Unmarshal(scanner.Bytes(), &line) != nil {
+				continue
+			}
+			if line.Type != "user" || line.IsSidechain || line.SessionID == "" {
+				continue
+			}
+			if _, seen := skip[line.SessionID]; seen {
+				continue
+			}
+			chars, ok := claudeUserText(line.Message.Content)
+			if !ok {
+				continue // tool_result or empty — not a human prompt
+			}
+			ts := parseFlexibleTime(line.Timestamp)
+			if ts.IsZero() {
+				continue
+			}
+			items = append(items, Interaction{
+				Source:    "Claude Code",
+				SourceID:  "claude",
+				Project:   projectName(line.Cwd, "Claude Project"),
+				SessionID: line.SessionID,
+				Timestamp: ts,
+				Chars:     chars,
+			})
+		}
+		file.Close()
+		return nil
+	})
+	return items
+}
+
+// claudeUserText returns the text length of a Claude "user" message and whether it
+// is a genuine human prompt. Claude stores tool results as "user" messages too
+// (content is an array of tool_result blocks); those return ok=false.
+func claudeUserText(raw json.RawMessage) (int, bool) {
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		if strings.TrimSpace(s) == "" {
+			return 0, false
+		}
+		return len(s), true
+	}
+	var blocks []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if json.Unmarshal(raw, &blocks) == nil {
+		n, hasText := 0, false
+		for _, b := range blocks {
+			if b.Type == "text" {
+				hasText = true
+				n += len(b.Text)
+			}
+		}
+		if hasText {
+			return n, true
+		}
+	}
+	return 0, false
 }
 
 func parseCodex(home string) ([]Interaction, SourceStatus) {
@@ -696,16 +810,6 @@ func parsePi(home string) ([]Interaction, SourceStatus) {
 	return items, status
 }
 
-func probeHermes(home string) ([]Interaction, SourceStatus) {
-	return probeDir("hermes", "hermes",
-		[]string{
-			filepath.Join(home, ".hermes"),
-			filepath.Join(home, ".config", "hermes"),
-		},
-		"hermes storage detected. Local history format is not confirmed yet.",
-		"No hermes storage found.")
-}
-
 func aggregate(items []Interaction) (Totals, []ProjectStats, Timeline, []SourceBreakdown) {
 	totals := Totals{Prompts: len(items)}
 	projectMap := make(map[string]*projectCollector)
@@ -718,8 +822,14 @@ func aggregate(items []Interaction) (Totals, []ProjectStats, Timeline, []SourceB
 		if item.Timestamp.IsZero() {
 			continue
 		}
-		tokens := estimateTokens(item.Chars)
-		totals.EstimatedTokens += tokens
+		estTokens := estimateTokens(item.Chars)
+		totals.EstimatedTokens += estTokens
+		if item.Tokens > 0 {
+			totals.RealTokens += item.Tokens
+		} else {
+			totals.RealTokens += estTokens
+		}
+		totals.EstimatedCost += item.Cost
 		allDays[item.Timestamp.Format("2006-01-02")] = struct{}{}
 
 		key := item.SourceID + ":" + item.Project
@@ -737,7 +847,13 @@ func aggregate(items []Interaction) (Totals, []ProjectStats, Timeline, []SourceB
 			projectMap[key] = c
 		}
 		c.prompts++
-		c.tokens += tokens
+		c.tokens += estTokens
+		if item.Tokens > 0 {
+			c.realTokens += item.Tokens
+		} else {
+			c.realTokens += estTokens
+		}
+		c.cost += item.Cost
 		if item.SessionID != "" {
 			c.sessions[item.SessionID] = struct{}{}
 		} else {
@@ -757,7 +873,11 @@ func aggregate(items []Interaction) (Totals, []ProjectStats, Timeline, []SourceB
 			sourceMap[item.SourceID] = sb
 		}
 		sb.Prompts++
-		sb.Tokens += tokens
+		sb.Tokens += estTokens
+		if item.Tokens > 0 {
+			sb.Tokens += item.Tokens - estTokens
+		}
+		sb.Cost += item.Cost
 
 		if item.SessionID != "" {
 			if _, ok := sourceSessions[item.SourceID]; !ok {
@@ -790,7 +910,8 @@ func aggregate(items []Interaction) (Totals, []ProjectStats, Timeline, []SourceB
 			Last:       c.last.Format("2006-01-02"),
 			ActiveDays: len(c.days),
 			Intensity:  round1(float64(c.prompts) / float64(totalDays)),
-			Tokens:     c.tokens,
+			Tokens:     c.realTokens,
+			Cost:       round4(c.cost),
 			Confidence: "estimated",
 		})
 	}
@@ -804,6 +925,9 @@ func aggregate(items []Interaction) (Totals, []ProjectStats, Timeline, []SourceB
 	breakdown := make([]SourceBreakdown, 0, len(sourceMap))
 	for _, sb := range sourceMap {
 		sb.Sessions = len(sourceSessions[sb.ID]) + countSessionTimes(sourceEmptyTimes[sb.ID])
+		if sb.Tokens == 0 {
+			// all sources estimated tokens already summed; keep compatibility
+		}
 		breakdown = append(breakdown, *sb)
 	}
 	sort.Slice(breakdown, func(i, j int) bool { return breakdown[i].Prompts > breakdown[j].Prompts })
@@ -824,8 +948,11 @@ func buildTimeline(items []Interaction) Timeline {
 		if item.Timestamp.IsZero() {
 			continue
 		}
-		tokens := estimateTokens(item.Chars)
-		totalTokens += tokens
+		estTokens := estimateTokens(item.Chars)
+		totalTokens += estTokens
+		if item.Tokens > 0 {
+			totalTokens += item.Tokens - estTokens
+		}
 
 		if earliest.IsZero() || item.Timestamp.Before(earliest) {
 			earliest = item.Timestamp
@@ -849,7 +976,11 @@ func buildTimeline(items []Interaction) Timeline {
 			weeks[weekKey] = ws
 		}
 		ws.Prompts++
-		ws.Tokens += tokens
+		ws.Tokens += estTokens
+		if item.Tokens > 0 {
+			ws.RealTokens += item.Tokens
+			ws.Cost += item.Cost
+		}
 		ws.Projects[item.Project]++
 
 		if item.SessionID != "" {
@@ -868,7 +999,11 @@ func buildTimeline(items []Interaction) Timeline {
 			months[monthKey] = ms
 		}
 		ms.Prompts++
-		ms.Tokens += tokens
+		ms.Tokens += estTokens
+		if item.Tokens > 0 {
+			ms.RealTokens += item.Tokens
+			ms.Cost += item.Cost
+		}
 
 		if _, ok := monthDays[monthKey]; !ok {
 			monthDays[monthKey] = make(map[string]struct{})
@@ -1090,6 +1225,10 @@ func fileExists(path string) bool {
 
 func round1(n float64) float64 {
 	return math.Round(n*10) / 10
+}
+
+func round4(n float64) float64 {
+	return math.Round(n*10000) / 10000
 }
 
 func startOfISOWeek(year int, week int, loc *time.Location) time.Time {

@@ -16,19 +16,22 @@ Local-first "AI Coding Wrapped" for Claude Code, Codex, Gemini/Antigravity, Cont
 
 ## Quick Start
 
-You do **not** need Go or any toolchain to run wrapminal — every option below downloads a prebuilt, self-contained binary. Pick the one that matches what you already have.
+**No Go, no Node, no toolchain.** One command downloads a self-contained binary and opens the dashboard.
 
-### 1. One-line install — *needs: `curl`/`bash` (preinstalled on macOS & Linux)*
+### macOS / Linux
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/SemihMutlu07/wrapminal/main/install.sh | bash
 ```
 
-Downloads the right binary for your OS, adds it to your `PATH`, and launches the dashboard.
+### Windows
 
-### 2. Download a binary directly — *needs: nothing*
+Download [`wrapminal-windows-amd64.exe`](https://github.com/SemihMutlu07/wrapminal/releases/latest/download/wrapminal-windows-amd64.exe) and double-click it.
 
-The app is a single static binary. Grab the one for your machine, make it executable, and run it:
+That's it. Your browser opens `http://localhost:8080`. Nothing is uploaded — it only reads history files already on your machine.
+
+<details>
+<summary>Prefer to download the binary by hand?</summary>
 
 ```bash
 # macOS Apple Silicon
@@ -40,21 +43,8 @@ chmod +x wrapminal
 ./wrapminal
 ```
 
-Windows: download `wrapminal-windows-amd64.exe` from the [latest release](https://github.com/SemihMutlu07/wrapminal/releases/latest) and run it.
-
-> **macOS Gatekeeper:** the binary is unsigned, so the first launch may be blocked ("cannot be opened"). Allow it once with `xattr -d com.apple.quarantine ./wrapminal`, or right-click the file → **Open**.
-
-### 3. npx — *needs: Node.js ≥ 16*
-
-```bash
-npx wrapminal
-```
-
-Then open:
-
-```
-http://localhost:8080
-```
+**macOS Gatekeeper:** the binary is unsigned, so the first launch may be blocked ("cannot be opened"). Allow it once with `xattr -d com.apple.quarantine ./wrapminal`, or right-click the file → **Open**.
+</details>
 
 ## How to test
 
